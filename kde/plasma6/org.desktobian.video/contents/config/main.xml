@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+                          http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name=""/>
+    <group name="General">
+        <!-- Path to the video / GIF to play as the wallpaper. -->
+        <entry name="VideoUrl" type="Url">
+            <default></default>
+        </entry>
+        <!-- Mute audio (default: yes — a wallpaper shouldn't blast sound). -->
+        <entry name="Muted" type="Bool">
+            <default>true</default>
+        </entry>
+        <!-- Playback volume 0–100 (only when not muted). -->
+        <entry name="Volume" type="Int">
+            <default>100</default>
+        </entry>
+        <!-- 0 = Stretch, 1 = Fit (letterbox), 2 = Crop (fill, default). -->
+        <entry name="FillMode" type="Int">
+            <default>2</default>
+        </entry>
+        <!-- Loop the video forever. -->
+        <entry name="Loop" type="Bool">
+            <default>true</default>
+        </entry>
+    </group>
+</kcfg>

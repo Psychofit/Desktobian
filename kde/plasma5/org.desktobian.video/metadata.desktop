@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=Desktobian Video
+Comment=Animated video & GIF wallpapers, integrated natively into the Plasma desktop (keeps your desktop icons).
+Icon=video-x-generic
+Type=Service
+X-KDE-ServiceTypes=Plasma/Wallpaper
+
+X-KDE-PluginInfo-Author=Desktobian contributors
+X-KDE-PluginInfo-Email=
+X-KDE-PluginInfo-Name=org.desktobian.video
+X-KDE-PluginInfo-Version=0.1.0
+X-KDE-PluginInfo-Website=https://github.com/psychofit/desktobian
+X-KDE-PluginInfo-Category=
+X-KDE-PluginInfo-License=Apache-2.0
+X-KDE-PluginInfo-EnabledByDefault=true
