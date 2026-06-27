@@ -185,6 +185,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "desktobian-core",
  "directories",
  "env_logger",
  "khronos-egl",
@@ -199,6 +200,19 @@ dependencies = [
  "wayland-client",
  "wayland-egl",
  "x11-dl",
+]
+
+[[package]]
+name = "desktobian-core"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "libc",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "toml",
 ]
 
 [[package]]

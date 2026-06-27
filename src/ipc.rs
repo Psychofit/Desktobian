@@ -1,9 +1,9 @@
-//! Control IPC between the `desktobian` client commands and a running daemon.
+//! Server side of the control IPC: the daemon's socket listener and the logic
+//! that applies incoming [`Request`]s to the running players.
 //!
-//! The daemon (`desktobian run`) listens on a Unix domain socket. Client
-//! invocations like `desktobian set <path>` or `desktobian pause` connect to it
-//! and send a single newline-delimited JSON [`Request`]; the daemon replies with
-//! a JSON [`Response`].
+//! The wire protocol ([`Request`] / [`Response`]) and the client [`send`] live
+//! in `desktobian-core` so the GUI can reuse them; here we add the daemon-only
+//! pieces (socket server, command application).
 //!
 //! All mutation of mpv happens on the daemon's render thread: the accept thread
 //! merely forwards parsed requests over an mpsc channel and waits for the reply,
@@ -15,73 +15,25 @@ use std::path::PathBuf;
 use std::sync::mpsc::{sync_channel, Receiver, Sender, SyncSender};
 use std::thread;
 
-use serde::{Deserialize, Serialize};
-
 use crate::config::{Config, Resolved};
 use crate::error::{Error, Result};
 use crate::player::MpvPlayer;
 use crate::source::{self, ResolvedSource};
 use crate::util;
 
-/// A request sent by a client to the daemon.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "cmd", rename_all = "lowercase")]
-pub enum Request {
-    /// Swap the wallpaper to `source` (file / dir / WE project folder).
-    Set {
-        source: PathBuf,
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Pause playback.
-    Pause {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Resume playback.
-    Play {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Toggle pause.
-    Toggle {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Mute audio.
-    Mute {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Unmute audio.
-    Unmute {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Re-read the config file and re-apply each output's wallpaper & settings.
-    Reload {
-        #[serde(default)]
-        outputs: Vec<String>,
-    },
-    /// Report the daemon's active outputs.
-    Status,
-    /// Ask the daemon to shut down.
-    Stop,
-}
+// The wire protocol and client are shared with the GUI via desktobian-core.
+pub use desktobian_core::ipc::{send, socket_path, Request, Response};
 
 /// Context the daemon needs to re-resolve wallpapers on `reload`: where the
 /// config lives and any `--source` override that was passed at launch.
 #[derive(Debug, Clone, Default)]
 pub struct DaemonContext {
-    config_path: Option<std::path::PathBuf>,
-    cli_source: Option<std::path::PathBuf>,
+    config_path: Option<PathBuf>,
+    cli_source: Option<PathBuf>,
 }
 
 impl DaemonContext {
-    pub fn new(
-        config_path: Option<std::path::PathBuf>,
-        cli_source: Option<std::path::PathBuf>,
-    ) -> Self {
+    pub fn new(config_path: Option<PathBuf>, cli_source: Option<PathBuf>) -> Self {
         DaemonContext {
             config_path,
             cli_source,
@@ -101,36 +53,6 @@ impl DaemonContext {
     }
 }
 
-/// The daemon's reply to a [`Request`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Response {
-    pub ok: bool,
-    pub message: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub outputs: Vec<String>,
-}
-
-impl Response {
-    fn ok(message: impl Into<String>) -> Self {
-        Response {
-            ok: true,
-            message: message.into(),
-            outputs: Vec::new(),
-        }
-    }
-    fn err(message: impl Into<String>) -> Self {
-        Response {
-            ok: false,
-            message: message.into(),
-            outputs: Vec::new(),
-        }
-    }
-    fn with_outputs(mut self, outputs: Vec<String>) -> Self {
-        self.outputs = outputs;
-        self
-    }
-}
-
 /// A parsed request plus a one-shot channel for its reply, handed from the
 /// accept thread to the daemon's render loop.
 pub struct DaemonCommand {
@@ -144,22 +66,6 @@ pub struct DaemonCommand {
 pub trait Controllable {
     fn output_name(&self) -> &str;
     fn player(&self) -> Option<&MpvPlayer>;
-}
-
-/// The control-socket path. Resolution order:
-///   1. `$DESKTOBIAN_SOCKET` (explicit override);
-///   2. `$XDG_RUNTIME_DIR/desktobian.sock`;
-///   3. `/tmp/desktobian-<uid>.sock`.
-pub fn socket_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("DESKTOBIAN_SOCKET") {
-        return PathBuf::from(path);
-    }
-    if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
-        return PathBuf::from(dir).join("desktobian.sock");
-    }
-    // SAFETY: getuid is always safe and never fails.
-    let uid = unsafe { libc::getuid() };
-    PathBuf::from(format!("/tmp/desktobian-{uid}.sock"))
 }
 
 /// Owns the listening socket; removes the socket file on drop.
@@ -259,7 +165,7 @@ pub fn process<C: Controllable>(
 ) -> Response {
     match request {
         Request::Set { source, outputs } => {
-            let resolved = match crate::source::resolve(source) {
+            let resolved = match source::resolve(source) {
                 Ok(r) => r,
                 Err(e) => return Response::err(e.to_string()),
             };
@@ -345,29 +251,6 @@ fn reload<C: Controllable>(instances: &[C], outputs: &[String], ctx: &DaemonCont
     Response::ok(format!("reloaded {} output(s)", affected.len())).with_outputs(affected)
 }
 
-/// Client side: connect to the daemon, send `request`, return its reply.
-pub fn send(request: &Request) -> Result<Response> {
-    let path = socket_path();
-    let mut stream = UnixStream::connect(&path).map_err(|e| {
-        Error::Config(format!(
-            "cannot reach the desktobian daemon at {} ({e}); is it running? \
-             start it with `desktobian run`",
-            path.display()
-        ))
-    })?;
-
-    let mut payload = serde_json::to_string(request).map_err(|e| Error::Config(e.to_string()))?;
-    payload.push('\n');
-    stream.write_all(payload.as_bytes())?;
-    stream.flush()?;
-
-    let mut reader = BufReader::new(stream);
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
-    serde_json::from_str(line.trim())
-        .map_err(|e| Error::Config(format!("malformed daemon reply: {e}")))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -381,18 +264,6 @@ mod tests {
         fn player(&self) -> Option<&MpvPlayer> {
             None
         }
-    }
-
-    #[test]
-    fn request_round_trips_through_json() {
-        let req = Request::Set {
-            source: PathBuf::from("/tmp/a.mp4"),
-            outputs: vec!["HDMI-A-1".into()],
-        };
-        let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("\"cmd\":\"set\""));
-        let back: Request = serde_json::from_str(&json).unwrap();
-        matches!(back, Request::Set { .. });
     }
 
     #[test]

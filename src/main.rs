@@ -6,15 +6,15 @@
 mod app;
 mod backend;
 mod cli;
-mod config;
-mod error;
 mod ipc;
 mod logging;
-mod monitor;
 mod player;
 mod render;
-mod source;
 mod util;
+
+// Shared, platform-independent layers live in `desktobian-core`. Re-export them
+// under their familiar `crate::` paths so the rest of the engine is unchanged.
+pub use desktobian_core::{config, error, monitor, source};
 
 use clap::Parser;
 
