@@ -15,6 +15,7 @@ use std::ptr;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
+use x11_dl::xfixes;
 use x11_dl::xlib::{self, Xlib};
 use x11_dl::xrandr::Xrandr;
 
@@ -41,11 +42,15 @@ const XA_ATOM: c_ulong = 4;
 const XA_CARDINAL: c_ulong = 6;
 const ALL_DESKTOPS: c_ulong = 0xFFFF_FFFF;
 const TRUE: i32 = 1;
+/// Shape extension `ShapeInput` kind (for an empty click-through input region).
+const SHAPE_INPUT: c_int = 2;
 
 /// The X11 backend holds the Xlib connection plus the initialised EGL display.
 pub struct X11Backend {
     xlib: Xlib,
     xrandr: Xrandr,
+    /// Optional XFixes handle, used to make the wallpaper window click-through.
+    xfixes: Option<xfixes::Xlib>,
     display: *mut xlib::Display,
     root: xlib::Window,
     egl: EglDisplay,
@@ -67,15 +72,43 @@ impl X11Backend {
         // SAFETY: display is valid.
         let root = unsafe { (xlib.XDefaultRootWindow)(display) };
 
+        // XFixes is used to make the wallpaper window click-through. It's
+        // optional: if it can't be loaded/initialised we simply skip that.
+        let xfixes = xfixes::Xlib::open().ok();
+        if let Some(xf) = &xfixes {
+            let mut major: c_int = 4;
+            let minor: c_int = 0;
+            // SAFETY: display is valid; initialises the XFixes extension so the
+            // shape-region calls below are accepted by the server.
+            unsafe { (xf.XFixesQueryVersion)(display, &mut major, &minor) };
+        }
+
         let egl = EglDisplay::new(display as *mut _)?;
 
         Ok(X11Backend {
             xlib,
             xrandr,
+            xfixes,
             display,
             root,
             egl,
         })
+    }
+
+    /// Make `window` ignore all pointer/keyboard input by giving it an empty
+    /// input shape, so clicks fall through to the desktop beneath it. No-op if
+    /// XFixes is unavailable.
+    fn set_input_passthrough(&self, window: xlib::Window) {
+        let Some(xf) = &self.xfixes else {
+            return;
+        };
+        // SAFETY: display/window valid. An empty region (no rectangles) used as
+        // the ShapeInput region makes the window transparent to input.
+        unsafe {
+            let region = (xf.XFixesCreateRegion)(self.display, ptr::null_mut(), 0);
+            (xf.XFixesSetWindowShapeRegion)(self.display, window, SHAPE_INPUT, 0, 0, region);
+            (xf.XFixesDestroyRegion)(self.display, region);
+        }
     }
 
     /// Create the desktop-layer window for one monitor and an EGL surface on it.
@@ -142,6 +175,8 @@ impl X11Backend {
 
         self.set_desktop_hints(window);
         self.set_window_name(window, "desktobian");
+        // Let desktop clicks (icons, right-click menu) pass through to the DE.
+        self.set_input_passthrough(window);
 
         // SAFETY: window is valid. Map it, then raise it to the top of the
         // desktop layer so it draws over the DE's own wallpaper window while

@@ -145,9 +145,17 @@ source = "~/Wallpapers/city-rain.mp4"
 
 ## Limitations (v0.1)
 
-- X11 desktop integration uses an override-redirect window — perfect on minimal
-  WMs (i3, bspwm, openbox, …); on full GNOME/KDE X11 sessions the result depends
-  on how the DE paints its own desktop.
+- Audio is **muted by default** (`mute = true`) — set `mute = false` in the
+  config, or run `desktobian unmute`, to enable sound.
+- The X11 backend draws a click-through desktop-layer window: it sits above the
+  desktop environment's wallpaper and below your application windows, and lets
+  desktop clicks pass through. On **KDE Plasma / GNOME**, the desktop's own
+  **icons are drawn by the DE on the same surface as its wallpaper**, so a video
+  wallpaper drawn over it will cover those icons. Keeping DE icons visible needs
+  a native desktop plugin (planned — see roadmap); minimal WMs (i3, bspwm,
+  openbox, …) are unaffected.
+- KDE/GNOME **Wayland** sessions don't implement `wlr-layer-shell`; use the X11
+  backend there for now.
 - Only **video/GIF/image** wallpapers so far. Scene & web are planned.
 - HiDPI on Wayland renders at the compositor-suggested size (no per-output
   fractional supersampling yet).
