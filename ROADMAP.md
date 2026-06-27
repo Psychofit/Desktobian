@@ -20,9 +20,11 @@ Wayland.
 - [x] Running-daemon IPC (Unix socket) + client commands:
       `set` / `pause` / `play` / `toggle` / `mute` / `unmute` / `status` / `stop`
 - [x] `reload` to re-read the config file and re-apply wallpapers at runtime
-- [ ] Native KDE Plasma / GNOME desktop integration so DE icons stay visible
-      over the video (currently an external desktop window covers them)
-- [ ] Pause/throttle when a fullscreen app is focused or on battery
+- [x] Native **KDE Plasma** wallpaper plugin (Plasma 5 & 6) so desktop icons
+      stay visible over the video — see [`kde/`](kde/) (tested on Plasma 5)
+- [ ] Same native integration for **GNOME** (Shell extension)
+- [ ] Pause/throttle when a window covers the desktop or on battery
+      (both the standalone engine and the KDE plugin)
 - [ ] Hotplug: react to monitors being connected/disconnected at runtime
 - [ ] Proper HiDPI / fractional-scale supersampling on Wayland
 - [ ] Per-output render threads so multi-monitor X11 keeps full refresh
