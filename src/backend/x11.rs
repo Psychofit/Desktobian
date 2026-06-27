@@ -143,11 +143,12 @@ impl X11Backend {
         self.set_desktop_hints(window);
         self.set_window_name(window, "desktobian");
 
-        // SAFETY: window is valid. Map it, then lower it to the bottom of the
-        // stack so it sits behind real windows.
+        // SAFETY: window is valid. Map it, then raise it to the top of the
+        // desktop layer so it draws over the DE's own wallpaper window while
+        // the DESKTOP window type keeps it below normal application windows.
         unsafe {
             (self.xlib.XMapWindow)(self.display, window);
-            (self.xlib.XLowerWindow)(self.display, window);
+            (self.xlib.XRaiseWindow)(self.display, window);
             (self.xlib.XSync)(self.display, 0);
         }
 
@@ -166,11 +167,14 @@ impl X11Backend {
             "_NET_WM_WINDOW_TYPE",
             &["_NET_WM_WINDOW_TYPE_DESKTOP"],
         );
+        // NB: we intentionally do *not* set `_NET_WM_STATE_BELOW`. The DESKTOP
+        // window type already keeps us beneath normal windows; `BELOW` would
+        // additionally push us under the desktop environment's own wallpaper
+        // window (e.g. plasmashell on KDE), hiding the video entirely.
         self.set_atom_property(
             window,
             "_NET_WM_STATE",
             &[
-                "_NET_WM_STATE_BELOW",
                 "_NET_WM_STATE_SKIP_TASKBAR",
                 "_NET_WM_STATE_SKIP_PAGER",
                 "_NET_WM_STATE_STICKY",
