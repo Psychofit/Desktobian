@@ -73,6 +73,8 @@ pub enum Command {
     Mute,
     /// Unmute audio on a running daemon.
     Unmute,
+    /// Re-read the config file and re-apply wallpapers on a running daemon.
+    Reload,
     /// Ask a running daemon to shut down.
     Stop,
     /// Query a running daemon's status.

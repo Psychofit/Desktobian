@@ -17,8 +17,10 @@ use std::thread;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::{Config, Resolved};
 use crate::error::{Error, Result};
 use crate::player::MpvPlayer;
+use crate::source::{self, ResolvedSource};
 use crate::util;
 
 /// A request sent by a client to the daemon.
@@ -56,10 +58,47 @@ pub enum Request {
         #[serde(default)]
         outputs: Vec<String>,
     },
+    /// Re-read the config file and re-apply each output's wallpaper & settings.
+    Reload {
+        #[serde(default)]
+        outputs: Vec<String>,
+    },
     /// Report the daemon's active outputs.
     Status,
     /// Ask the daemon to shut down.
     Stop,
+}
+
+/// Context the daemon needs to re-resolve wallpapers on `reload`: where the
+/// config lives and any `--source` override that was passed at launch.
+#[derive(Debug, Clone, Default)]
+pub struct DaemonContext {
+    config_path: Option<std::path::PathBuf>,
+    cli_source: Option<std::path::PathBuf>,
+}
+
+impl DaemonContext {
+    pub fn new(
+        config_path: Option<std::path::PathBuf>,
+        cli_source: Option<std::path::PathBuf>,
+    ) -> Self {
+        DaemonContext {
+            config_path,
+            cli_source,
+        }
+    }
+
+    /// Freshly resolve the effective settings + media for one output, reading
+    /// the config file from disk so edits are picked up.
+    pub fn resolve(&self, output_name: &str) -> Result<(Resolved, ResolvedSource)> {
+        let config = match &self.config_path {
+            Some(path) => Config::load(path)?,
+            None => Config::default(),
+        };
+        let settings = config.resolve(output_name, self.cli_source.as_deref())?;
+        let source = source::resolve(&settings.source)?;
+        Ok((settings, source))
+    }
 }
 
 /// The daemon's reply to a [`Request`].
@@ -213,7 +252,11 @@ fn handle_connection(stream: UnixStream, tx: &Sender<DaemonCommand>) -> std::io:
 }
 
 /// Apply a command to the daemon's instances, returning the reply.
-pub fn process<C: Controllable>(request: &Request, instances: &[C]) -> Response {
+pub fn process<C: Controllable>(
+    request: &Request,
+    instances: &[C],
+    ctx: &DaemonContext,
+) -> Response {
     match request {
         Request::Set { source, outputs } => {
             let resolved = match crate::source::resolve(source) {
@@ -224,6 +267,7 @@ pub fn process<C: Controllable>(request: &Request, instances: &[C]) -> Response 
                 p.load_source(&resolved)
             })
         }
+        Request::Reload { outputs } => reload(instances, outputs, ctx),
         Request::Pause { outputs } => apply(instances, outputs, "paused", |p| p.set_paused(true)),
         Request::Play { outputs } => apply(instances, outputs, "resumed", |p| p.set_paused(false)),
         Request::Toggle { outputs } => apply(instances, outputs, "toggled", |p| p.toggle_paused()),
@@ -270,6 +314,35 @@ fn apply<C: Controllable>(
         return Response::err("no matching, initialised outputs");
     }
     Response::ok(format!("{verb} {} output(s)", affected.len())).with_outputs(affected)
+}
+
+/// Re-read the config from disk and re-apply each matching output's wallpaper
+/// and live settings (mute/volume/scaling).
+fn reload<C: Controllable>(instances: &[C], outputs: &[String], ctx: &DaemonContext) -> Response {
+    let mut affected = Vec::new();
+    for inst in instances {
+        if !outputs.is_empty() && !outputs.iter().any(|o| o == inst.output_name()) {
+            continue;
+        }
+        let Some(player) = inst.player() else {
+            continue;
+        };
+        let (settings, source) = match ctx.resolve(inst.output_name()) {
+            Ok(v) => v,
+            Err(e) => return Response::err(format!("{}: {e}", inst.output_name())),
+        };
+        if let Err(e) = player
+            .load_source(&source)
+            .and_then(|_| player.apply_live_settings(&settings))
+        {
+            return Response::err(format!("{}: {e}", inst.output_name()));
+        }
+        affected.push(inst.output_name().to_string());
+    }
+    if affected.is_empty() {
+        return Response::err("no matching, initialised outputs");
+    }
+    Response::ok(format!("reloaded {} output(s)", affected.len())).with_outputs(affected)
 }
 
 /// Client side: connect to the daemon, send `request`, return its reply.
@@ -325,7 +398,7 @@ mod tests {
     #[test]
     fn status_lists_outputs() {
         let instances = [FakeInstance("eDP-1"), FakeInstance("HDMI-A-1")];
-        let resp = process(&Request::Status, &instances);
+        let resp = process(&Request::Status, &instances, &DaemonContext::default());
         assert!(resp.ok);
         assert_eq!(resp.outputs, vec!["eDP-1", "HDMI-A-1"]);
     }
@@ -333,7 +406,7 @@ mod tests {
     #[test]
     fn stop_requests_shutdown_ok() {
         let instances: [FakeInstance; 0] = [];
-        let resp = process(&Request::Stop, &instances);
+        let resp = process(&Request::Stop, &instances, &DaemonContext::default());
         assert!(resp.ok);
         // (sets the global shutdown flag; other backends observe it.)
     }
@@ -351,7 +424,7 @@ mod tests {
         let daemon = std::thread::spawn(move || {
             if let Ok(cmd) = rx.recv() {
                 let instances = [FakeInstance("DP-1")];
-                let resp = process(&cmd.request, &instances);
+                let resp = process(&cmd.request, &instances, &DaemonContext::default());
                 let _ = cmd.reply.try_send(resp);
             }
         });

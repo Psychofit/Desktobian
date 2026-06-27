@@ -19,7 +19,7 @@ Wayland.
 
 - [x] Running-daemon IPC (Unix socket) + client commands:
       `set` / `pause` / `play` / `toggle` / `mute` / `unmute` / `status` / `stop`
-- [ ] `reload` to re-read the config file at runtime
+- [x] `reload` to re-read the config file and re-apply wallpapers at runtime
 - [ ] Native KDE Plasma / GNOME desktop integration so DE icons stay visible
       over the video (currently an external desktop window covers them)
 - [ ] Pause/throttle when a fullscreen app is focused or on battery

@@ -106,6 +106,7 @@ desktobian pause                        # freeze playback
 desktobian play                         # resume
 desktobian toggle                       # flip pause state
 desktobian mute / unmute                # audio
+desktobian reload                       # re-read config.toml & re-apply
 desktobian status                       # which outputs are active
 desktobian stop                         # shut the daemon down
 ```

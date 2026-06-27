@@ -194,13 +194,46 @@ impl MpvPlayer {
 
     /// Mute or unmute audio (`mute` property).
     pub fn set_muted(&self, muted: bool) -> Result<()> {
-        let value = if muted { "yes" } else { "no" };
-        let name = CString::new("mute").unwrap();
-        let value_c = CString::new(value).unwrap();
+        self.set_prop("mute", if muted { "yes" } else { "no" })
+    }
+
+    /// Re-apply settings that can change at runtime (mute, volume, scaling).
+    /// Used by `reload` so a config edit takes effect without a restart.
+    /// Options that can only be set before init (e.g. `hwdec`) are unaffected.
+    pub fn apply_live_settings(&self, s: &Resolved) -> Result<()> {
+        self.set_prop("mute", if s.mute { "yes" } else { "no" })?;
+        self.set_prop("volume", &s.volume.to_string())?;
+        match s.fit {
+            Fit::Cover => {
+                self.set_prop("video-unscaled", "no")?;
+                self.set_prop("keepaspect", "yes")?;
+                self.set_prop("panscan", "1.0")?;
+            }
+            Fit::Contain => {
+                self.set_prop("video-unscaled", "no")?;
+                self.set_prop("keepaspect", "yes")?;
+                self.set_prop("panscan", "0.0")?;
+            }
+            Fit::Fill => {
+                self.set_prop("video-unscaled", "no")?;
+                self.set_prop("keepaspect", "no")?;
+            }
+            Fit::Center => {
+                self.set_prop("keepaspect", "yes")?;
+                self.set_prop("video-unscaled", "yes")?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Set an mpv property to a string value at runtime.
+    fn set_prop(&self, name: &str, value: &str) -> Result<()> {
+        let name_c = CString::new(name).map_err(|_| Error::mpv("property name has NUL"))?;
+        let value_c = CString::new(value).map_err(|_| Error::mpv("property value has NUL"))?;
         // SAFETY: valid handle and NUL-terminated strings.
         let ret =
-            unsafe { ffi::mpv_set_property_string(self.handle, name.as_ptr(), value_c.as_ptr()) };
-        check(ret, "set mute")
+            unsafe { ffi::mpv_set_property_string(self.handle, name_c.as_ptr(), value_c.as_ptr()) };
+        check(ret, &format!("set property {name}={value}"))
     }
 
     /// Create the OpenGL render context. An OpenGL context **must** be current

@@ -49,7 +49,8 @@ pub fn run(cli: Cli) -> Result<()> {
             // Start the control socket; `_server` removes it on drop, after the
             // render loop returns.
             let (_server, commands) = ipc::Server::start()?;
-            backend.run(plans, commands)
+            let context = ipc::DaemonContext::new(effective_config_path(&cli), cli.source.clone());
+            backend.run(plans, commands, context)
         }
         _ => unreachable!("client commands handled above"),
     }
@@ -69,10 +70,20 @@ fn client_request(command: &Command, outputs: &[String]) -> Option<ipc::Request>
         Command::Toggle => ipc::Request::Toggle { outputs },
         Command::Mute => ipc::Request::Mute { outputs },
         Command::Unmute => ipc::Request::Unmute { outputs },
+        Command::Reload => ipc::Request::Reload { outputs },
         Command::Status => ipc::Request::Status,
         Command::Stop => ipc::Request::Stop,
         Command::Run | Command::ListOutputs => return None,
     })
+}
+
+/// The config path the daemon should re-read on `reload`: an explicit
+/// `--config`, or the default path if a file exists there, else `None`.
+fn effective_config_path(cli: &Cli) -> Option<PathBuf> {
+    match &cli.config {
+        Some(path) => Some(path.clone()),
+        None => default_config_path().filter(|p| p.exists()),
+    }
 }
 
 /// Send a request to the running daemon and report the reply.

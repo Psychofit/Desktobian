@@ -18,7 +18,7 @@ use std::sync::mpsc::Receiver;
 use crate::cli::Backend as BackendChoice;
 use crate::config::{Config, Resolved};
 use crate::error::{Error, Result};
-use crate::ipc::DaemonCommand;
+use crate::ipc::{DaemonCommand, DaemonContext};
 use crate::monitor::Output;
 use crate::source::{self, ResolvedSource};
 
@@ -40,11 +40,13 @@ pub trait Backend {
     /// Run the wallpaper engine for the given plans until interrupted.
     ///
     /// `commands` delivers live control requests (set/pause/…) from the IPC
-    /// server; the loop should drain it without blocking.
+    /// server; the loop should drain it without blocking. `context` lets the
+    /// `reload` command re-read the config from disk.
     fn run(
         self: Box<Self>,
         plans: Vec<WallpaperPlan>,
         commands: Receiver<DaemonCommand>,
+        context: DaemonContext,
     ) -> Result<()>;
 }
 

@@ -21,7 +21,7 @@ use x11_dl::xrandr::Xrandr;
 
 use crate::backend::{Backend, WallpaperPlan};
 use crate::error::{Error, Result};
-use crate::ipc::DaemonCommand;
+use crate::ipc::{DaemonCommand, DaemonContext};
 use crate::monitor::Output;
 use crate::player::{MpvPlayer, NativeDisplay};
 use crate::render::{mpv_get_proc_address, EglDisplay, GlSurface};
@@ -338,6 +338,7 @@ impl Backend for X11Backend {
         self: Box<Self>,
         plans: Vec<WallpaperPlan>,
         commands: Receiver<DaemonCommand>,
+        context: DaemonContext,
     ) -> Result<()> {
         util::install_signal_handlers();
 
@@ -382,7 +383,7 @@ impl Backend for X11Backend {
 
             // Apply any pending IPC control commands.
             while let Ok(cmd) = commands.try_recv() {
-                let response = crate::ipc::process(&cmd.request, &instances);
+                let response = crate::ipc::process(&cmd.request, &instances, &context);
                 let _ = cmd.reply.try_send(response);
             }
 
