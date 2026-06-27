@@ -23,19 +23,37 @@ fn default_library_folders() -> Vec<String> {
     env::default_library_folders()
 }
 
+/// Scanning (and thumbnailing via ffmpeg) can be slow, so run it on the blocking
+/// pool rather than the main thread.
 #[tauri::command]
-fn scan_library(folders: Vec<String>, thumbnails: bool) -> Vec<library::WallpaperItem> {
-    library::scan(&folders, thumbnails)
+async fn scan_library(folders: Vec<String>, thumbnails: bool) -> Vec<library::WallpaperItem> {
+    tauri::async_runtime::spawn_blocking(move || library::scan(&folders, thumbnails))
+        .await
+        .unwrap_or_default()
 }
 
+/// Applying may shell out to qdbus/the engine socket; keep it off the main thread.
 #[tauri::command]
-fn apply_wallpaper(request: apply::ApplyRequest) -> apply::ApplyResult {
-    apply::apply(request)
+async fn apply_wallpaper(request: apply::ApplyRequest) -> apply::ApplyResult {
+    tauri::async_runtime::spawn_blocking(move || apply::apply(request))
+        .await
+        .unwrap_or_else(|e| apply::ApplyResult {
+            ok: false,
+            message: format!("internal error: {e}"),
+            method: String::new(),
+        })
 }
 
 /// Native file picker for a single video/GIF.
+///
+/// This is an `async` command on purpose: synchronous Tauri commands run on the
+/// main thread, and the *blocking* dialog APIs would then deadlock the GTK event
+/// loop. As an async command it runs off the main thread, so we use the
+/// non-blocking picker (which schedules the dialog on the main loop) and await
+/// its result over a oneshot channel.
 #[tauri::command]
-fn pick_video(app: tauri::AppHandle) -> Option<String> {
+async fn pick_video(app: tauri::AppHandle) -> Option<String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
         .add_filter(
@@ -44,18 +62,27 @@ fn pick_video(app: tauri::AppHandle) -> Option<String> {
                 "mp4", "mkv", "webm", "mov", "avi", "m4v", "gif", "apng", "webp",
             ],
         )
-        .blocking_pick_file()
-        .and_then(|f| f.into_path().ok())
+        .pick_file(move |f| {
+            let _ = tx.send(f);
+        });
+    let picked = rx.await.ok().flatten()?;
+    picked
+        .into_path()
+        .ok()
         .map(|p| p.to_string_lossy().into_owned())
 }
 
 /// Native folder picker to add a library location.
 #[tauri::command]
-fn pick_folder(app: tauri::AppHandle) -> Option<String> {
-    app.dialog()
-        .file()
-        .blocking_pick_folder()
-        .and_then(|f| f.into_path().ok())
+async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().pick_folder(move |f| {
+        let _ = tx.send(f);
+    });
+    let picked = rx.await.ok().flatten()?;
+    picked
+        .into_path()
+        .ok()
         .map(|p| p.to_string_lossy().into_owned())
 }
 
