@@ -144,6 +144,21 @@ source = "~/Wallpapers/city-rain.mp4"
 | `hwdec`       | `auto-safe` | mpv hardware-decode mode (`no`, `vaapi`, `nvdec`, …)   |
 | `mpv_options` | `[]`        | Raw mpv options passthrough, e.g. `["--brightness=-5"]`|
 
+## Desktop manager (GUI)
+
+There's also a lightweight **GUI wallpaper manager** (Tauri) in
+[`crates/desktobian-gui/`](crates/desktobian-gui/): browse a grid of your
+wallpapers (it auto-scans your Videos folder, `~/Wallpapers`, and the Steam
+Workshop folder) and apply one with a click. It drives the right renderer for
+your desktop automatically — the KDE Plasma plugin on Plasma, or the engine
+daemon elsewhere.
+
+```sh
+cargo run -p desktobian-gui
+```
+
+See [crates/desktobian-gui/README.md](crates/desktobian-gui/README.md).
+
 ## KDE Plasma
 
 On a full **KDE Plasma** desktop, the recommended way to use Desktobian is the

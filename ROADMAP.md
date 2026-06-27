@@ -22,6 +22,9 @@ Wayland.
 - [x] `reload` to re-read the config file and re-apply wallpapers at runtime
 - [x] Native **KDE Plasma** wallpaper plugin (Plasma 5 & 6) so desktop icons
       stay visible over the video — see [`kde/`](kde/) (tested on Plasma 5)
+- [x] **GUI wallpaper manager** (Tauri) — browse a library & apply with a click,
+      driving the KDE plugin or the engine daemon — see [`crates/desktobian-gui/`](crates/desktobian-gui/)
+- [x] Refactor into a Cargo workspace with a shared `desktobian-core` crate
 - [ ] Same native integration for **GNOME** (Shell extension)
 - [ ] Pause/throttle when a window covers the desktop or on battery
       (both the standalone engine and the KDE plugin)

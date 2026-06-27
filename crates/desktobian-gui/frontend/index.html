@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desktobian — Wallpaper Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">▦</span>
+        <div>
+          <div class="title">Desktobian</div>
+          <div class="subtitle" id="env-line">detecting environment…</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btn-pick" class="btn">＋ Add video</button>
+        <button id="btn-folder" class="btn">📁 Add folder</button>
+        <button id="btn-refresh" class="btn">⟳ Refresh</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="status" class="status hidden"></section>
+      <section id="grid" class="grid"></section>
+      <section id="empty" class="empty hidden">
+        <p>No wallpapers found yet.</p>
+        <p class="muted">
+          Add a video, or a folder of videos (your Videos folder and Steam
+          Workshop are scanned automatically).
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="selected" id="selected-info">Select a wallpaper…</div>
+      <div class="controls">
+        <label class="ctl"><input type="checkbox" id="muted" checked /> Muted</label>
+        <label class="ctl">
+          Fit:
+          <select id="fill">
+            <option value="2" selected>Crop</option>
+            <option value="1">Fit</option>
+            <option value="0">Stretch</option>
+          </select>
+        </label>
+        <button id="btn-apply" class="btn primary" disabled>Apply</button>
+      </div>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>

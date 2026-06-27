@@ -17,7 +17,7 @@ name = "desktobian"
 path = "src/main.rs"
 
 [workspace]
-members = ["crates/desktobian-core"]
+members = ["crates/desktobian-core", "crates/desktobian-gui"]
 
 [dependencies]
 desktobian-core = { path = "crates/desktobian-core" }
