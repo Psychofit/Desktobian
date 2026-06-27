@@ -155,11 +155,16 @@ fn thumbnail_cache_dir() -> Option<PathBuf> {
 
 /// Extract a single frame as a JPEG thumbnail using ffmpeg.
 fn generate_thumbnail(src: &Path, dst: &Path) -> bool {
-    let status = std::process::Command::new("ffmpeg")
-        .args(["-y", "-loglevel", "error", "-ss", "1", "-i"])
+    let mut cmd = std::process::Command::new("ffmpeg");
+    cmd.args(["-y", "-loglevel", "error"]);
+    // For videos, grab a frame ~1s in to skip black intros. A still image has
+    // no frame at t=1s, so don't seek for images.
+    if media_kind(src) == "video" {
+        cmd.args(["-ss", "1"]);
+    }
+    cmd.arg("-i")
         .arg(src)
         .args(["-frames:v", "1", "-vf", "scale=480:-1"])
-        .arg(dst)
-        .status();
-    matches!(status, Ok(s) if s.success()) && dst.exists()
+        .arg(dst);
+    matches!(cmd.status(), Ok(s) if s.success()) && dst.exists()
 }

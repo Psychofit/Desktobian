@@ -44,52 +44,99 @@ pub fn apply(req: ApplyRequest) -> ApplyResult {
     }
 }
 
-/// Set the KDE Plasma wallpaper to our video plugin via plasmashell D-Bus.
+/// Set the KDE Plasma wallpaper via plasmashell D-Bus.
+///
+/// Videos/GIFs use our `org.desktobian.video` plugin; still images use KDE's
+/// built-in `org.kde.image` wallpaper (our video plugin can't display them).
 fn apply_kde(req: &ApplyRequest) -> ApplyResult {
     let url = to_file_url(&req.path);
-    let muted = if req.muted { "true" } else { "false" };
-    let fill = req.fill_mode;
-    // The path is percent-encoded (no quotes), so embedding it in a single-quoted
-    // JS string is safe.
-    let script = format!(
-        "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
-           var d = ds[i]; \
-           d.wallpaperPlugin = 'org.desktobian.video'; \
-           d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
-           d.writeConfig('VideoUrl', '{url}'); \
-           d.writeConfig('Muted', {muted}); \
-           d.writeConfig('FillMode', {fill}); \
-         }}"
-    );
+    // The path is percent-encoded (no quotes), so embedding it in single-quoted
+    // JS strings is safe.
+    let script = if is_image(&req.path) {
+        format!(
+            "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
+               var d = ds[i]; \
+               d.wallpaperPlugin = 'org.kde.image'; \
+               d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General']; \
+               d.writeConfig('Image', '{url}'); \
+             }}"
+        )
+    } else {
+        let muted = if req.muted { "true" } else { "false" };
+        let fill = req.fill_mode;
+        format!(
+            "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
+               var d = ds[i]; \
+               d.wallpaperPlugin = 'org.desktobian.video'; \
+               d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
+               d.writeConfig('VideoUrl', '{url}'); \
+               d.writeConfig('Muted', {muted}); \
+               d.writeConfig('FillMode', {fill}); \
+             }}"
+        )
+    };
 
+    if run_plasma_script(&script) {
+        ApplyResult {
+            ok: true,
+            message: "Wallpaper applied via KDE Plasma.".into(),
+            method: "kde-plasma".into(),
+        }
+    } else {
+        ApplyResult {
+            ok: false,
+            message: "Could not reach plasmashell (is qdbus installed?). For videos, make \
+                      sure the Desktobian Video plugin is installed (kde/install.sh)."
+                .into(),
+            method: "kde-plasma".into(),
+        }
+    }
+}
+
+/// Revert the desktop to a plain default wallpaper. Used when the GUI quits.
+pub fn revert_to_default() {
+    if crate::env::detect().is_kde {
+        // Switch back to KDE's standard image wallpaper plugin.
+        let script = "var ds = desktops(); for (var i = 0; i < ds.length; i++) { \
+                        ds[i].wallpaperPlugin = 'org.kde.image'; }";
+        let _ = run_plasma_script(script);
+    } else {
+        // Ask the engine daemon to shut down (which clears the wallpaper).
+        use desktobian_core::ipc::{send, Request};
+        let _ = send(&Request::Stop);
+    }
+}
+
+/// Run a Plasma scripting snippet through plasmashell, trying the available
+/// `qdbus` variants. Returns whether it succeeded.
+fn run_plasma_script(script: &str) -> bool {
     for tool in ["qdbus6", "qdbus", "qdbus-qt5"] {
-        match std::process::Command::new(tool)
+        if let Ok(status) = std::process::Command::new(tool)
             .args([
                 "org.kde.plasmashell",
                 "/PlasmaShell",
                 "org.kde.PlasmaShell.evaluateScript",
-                &script,
+                script,
             ])
             .status()
         {
-            Ok(s) if s.success() => {
-                return ApplyResult {
-                    ok: true,
-                    message: "Wallpaper applied via KDE Plasma.".into(),
-                    method: "kde-plasma".into(),
-                };
+            if status.success() {
+                return true;
             }
-            // Tool ran but reported failure, or wasn't found — try the next.
-            _ => continue,
         }
     }
-    ApplyResult {
-        ok: false,
-        message: "Could not reach plasmashell (is qdbus installed?). Make sure the \
-                  Desktobian Video plugin is installed (kde/install.sh)."
-            .into(),
-        method: "kde-plasma".into(),
-    }
+    false
+}
+
+/// Still-image extensions (these are applied via KDE's image wallpaper).
+const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "bmp", "tif", "tiff", "avif", "jxl"];
+
+fn is_image(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| IMAGE_EXTS.contains(&e.to_ascii_lowercase().as_str()))
+        .unwrap_or(false)
 }
 
 /// Tell the standalone engine daemon to switch wallpaper over the control socket.

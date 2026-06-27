@@ -97,6 +97,49 @@ fn main() {
             pick_video,
             pick_folder,
         ])
+        .setup(setup_tray)
+        // Closing the window hides it to the tray (the wallpaper keeps playing);
+        // the app only really quits via the tray's "Quit" entry.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running the Desktobian GUI");
+}
+
+/// Build the system tray icon and its menu.
+fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::TrayIconBuilder;
+    use tauri::Manager;
+
+    let show = MenuItem::with_id(app, "show", "Show Desktobian", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit (restore wallpaper)", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    let mut builder = TrayIconBuilder::new()
+        .tooltip("Desktobian")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "quit" => {
+                // Restore a default wallpaper before exiting, then quit.
+                apply::revert_to_default();
+                app.exit(0);
+            }
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app)?;
+    Ok(())
 }

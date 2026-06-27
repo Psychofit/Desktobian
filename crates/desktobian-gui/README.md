@@ -42,9 +42,16 @@ cargo build -p desktobian-gui --release     # release binary at target/release/d
 The frontend is plain static HTML/CSS/JS (in `frontend/`) — no Node/bundler step
 is required.
 
+## Window & tray behaviour
+
+- Closing the window **minimises it to the system tray** — the wallpaper keeps
+  playing.
+- Use the tray's **Quit** entry to actually exit; on quit it restores a default
+  wallpaper (on KDE, the standard image wallpaper plugin).
+
 ## How "Apply" works under the hood
 
-| Desktop        | Mechanism                                                                 |
-| -------------- | ------------------------------------------------------------------------- |
-| KDE Plasma     | `plasmashell` D-Bus `evaluateScript`: sets wallpaper plugin + `VideoUrl`. |
-| Other (wlroots/X11) | `desktobian-core::ipc::send(Request::Set { … })` to the engine daemon. |
+| Content        | KDE Plasma                                                              | Other (wlroots/X11)            |
+| -------------- | ---------------------------------------------------------------------- | ------------------------------ |
+| Video / GIF    | `org.desktobian.video` plugin via plasmashell `evaluateScript`         | `ipc::send(Request::Set { … })` to the daemon |
+| Still image    | `org.kde.image` (KDE's built-in image wallpaper)                       | engine displays it via mpv     |
