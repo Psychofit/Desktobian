@@ -31,7 +31,6 @@ const ALLOC_NONE: c_int = 0;
 const INPUT_OUTPUT: c_uint = 1;
 const CW_BACK_PIXEL: c_ulong = 1 << 1;
 const CW_BORDER_PIXEL: c_ulong = 1 << 3;
-const CW_OVERRIDE_REDIRECT: c_ulong = 1 << 9;
 const CW_EVENT_MASK: c_ulong = 1 << 11;
 const CW_COLORMAP: c_ulong = 1 << 13;
 const EXPOSURE_MASK: c_long = 1 << 15;
@@ -39,6 +38,8 @@ const STRUCTURE_NOTIFY_MASK: c_long = 1 << 17;
 const VISUAL_ID_MASK: c_long = 0x1;
 const PROP_MODE_REPLACE: c_int = 0;
 const XA_ATOM: c_ulong = 4;
+const XA_CARDINAL: c_ulong = 6;
+const ALL_DESKTOPS: c_ulong = 0xFFFF_FFFF;
 const TRUE: i32 = 1;
 
 /// The X11 backend holds the Xlib connection plus the initialised EGL display.
@@ -103,14 +104,17 @@ impl X11Backend {
         let colormap =
             unsafe { (self.xlib.XCreateColormap)(self.display, self.root, visual, ALLOC_NONE) };
 
+        // Note: we deliberately leave `override_redirect` false so the window
+        // manager *manages* this window and honours the desktop-layer hints we
+        // set below (`_NET_WM_WINDOW_TYPE_DESKTOP` + `_NET_WM_STATE_BELOW`).
+        // An override-redirect window would float on top under compositing WMs
+        // like KWin instead of sitting behind everything as a wallpaper.
         let mut attrs: xlib::XSetWindowAttributes = unsafe { std::mem::zeroed() };
         attrs.background_pixel = 0;
         attrs.border_pixel = 0;
         attrs.colormap = colormap;
-        attrs.override_redirect = TRUE;
         attrs.event_mask = EXPOSURE_MASK | STRUCTURE_NOTIFY_MASK;
-        let valuemask =
-            CW_BACK_PIXEL | CW_BORDER_PIXEL | CW_COLORMAP | CW_OVERRIDE_REDIRECT | CW_EVENT_MASK;
+        let valuemask = CW_BACK_PIXEL | CW_BORDER_PIXEL | CW_COLORMAP | CW_EVENT_MASK;
 
         // SAFETY: all handles valid; attrs initialised for the given valuemask.
         let window = unsafe {
@@ -136,12 +140,12 @@ impl X11Backend {
             return Err(Error::X11("XCreateWindow failed".into()));
         }
 
-        self.mark_desktop_window(window);
+        self.set_desktop_hints(window);
         self.set_window_name(window, "desktobian");
 
-        // SAFETY: window is valid.
+        // SAFETY: window is valid. Map it, then lower it to the bottom of the
+        // stack so it sits behind real windows.
         unsafe {
-            (self.xlib.XLowerWindow)(self.display, window);
             (self.xlib.XMapWindow)(self.display, window);
             (self.xlib.XLowerWindow)(self.display, window);
             (self.xlib.XSync)(self.display, 0);
@@ -153,21 +157,66 @@ impl X11Backend {
         Ok((window, surface))
     }
 
-    /// Tag the window with `_NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_DESKTOP`.
-    fn mark_desktop_window(&self, window: xlib::Window) {
-        let wm_type = self.intern("_NET_WM_WINDOW_TYPE");
-        let desktop = self.intern("_NET_WM_WINDOW_TYPE_DESKTOP");
-        if wm_type == 0 || desktop == 0 {
+    /// Apply the EWMH hints that make a window behave as a desktop background:
+    /// desktop window type, "below" + skip-taskbar/pager + sticky states, and
+    /// presence on all virtual desktops.
+    fn set_desktop_hints(&self, window: xlib::Window) {
+        self.set_atom_property(
+            window,
+            "_NET_WM_WINDOW_TYPE",
+            &["_NET_WM_WINDOW_TYPE_DESKTOP"],
+        );
+        self.set_atom_property(
+            window,
+            "_NET_WM_STATE",
+            &[
+                "_NET_WM_STATE_BELOW",
+                "_NET_WM_STATE_SKIP_TASKBAR",
+                "_NET_WM_STATE_SKIP_PAGER",
+                "_NET_WM_STATE_STICKY",
+            ],
+        );
+        self.set_cardinal_property(window, "_NET_WM_DESKTOP", ALL_DESKTOPS);
+    }
+
+    /// Set a property to an array of atoms (interned by name).
+    fn set_atom_property(&self, window: xlib::Window, prop: &str, value_names: &[&str]) {
+        let prop_atom = self.intern(prop);
+        if prop_atom == 0 {
             return;
         }
-        let value = desktop;
-        // SAFETY: valid display/window/atoms; one 32-bit ATOM element.
+        let atoms: Vec<xlib::Atom> = value_names.iter().map(|n| self.intern(n)).collect();
+        if atoms.contains(&0) {
+            return;
+        }
+        // SAFETY: valid display/window/atom; `atoms` holds `len` 32-bit ATOMs.
         unsafe {
             (self.xlib.XChangeProperty)(
                 self.display,
                 window,
-                wm_type,
+                prop_atom,
                 XA_ATOM,
+                32,
+                PROP_MODE_REPLACE,
+                atoms.as_ptr() as *const c_uchar,
+                atoms.len() as c_int,
+            );
+        }
+    }
+
+    /// Set a single 32-bit CARDINAL property.
+    fn set_cardinal_property(&self, window: xlib::Window, prop: &str, value: c_ulong) {
+        let prop_atom = self.intern(prop);
+        if prop_atom == 0 {
+            return;
+        }
+        // SAFETY: valid display/window/atom; one 32-bit CARDINAL element.
+        unsafe {
+            (self.xlib.XChangeProperty)(
+                self.display,
+                window,
+                prop_atom,
+                XA_CARDINAL,
                 32,
                 PROP_MODE_REPLACE,
                 &value as *const c_ulong as *const c_uchar,
@@ -265,6 +314,8 @@ impl Backend for X11Backend {
                 mpv_get_proc_address,
                 None,
             )?;
+            // Load media only after the render context exists (see MpvPlayer::new).
+            player.load_source(&plan.source)?;
 
             instances.push(X11Instance {
                 player,

@@ -294,6 +294,8 @@ impl WaylandState {
             mpv_get_proc_address,
             None,
         )?;
+        // Load media only after the render context exists (see MpvPlayer::new).
+        player.load_source(&source)?;
 
         self.instances[idx].width = w;
         self.instances[idx].height = h;

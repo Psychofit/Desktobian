@@ -36,8 +36,13 @@ pub struct MpvPlayer {
 }
 
 impl MpvPlayer {
-    /// Create the mpv core, apply wallpaper-appropriate options, and queue the
-    /// media for playback. Does **not** create the render context yet.
+    /// Create the mpv core and apply wallpaper-appropriate options.
+    ///
+    /// Crucially this does **not** load any media yet: the media must only be
+    /// loaded after the render context exists (via [`MpvPlayer::init_render`]
+    /// then [`MpvPlayer::load_source`]). Loading earlier makes mpv initialise
+    /// the `libmpv` video output before a render context is set, which fails
+    /// with "No render context set" and leaves the screen black.
     pub fn new(settings: &Resolved, source: &ResolvedSource) -> Result<Self> {
         // SAFETY: mpv_create has no preconditions; returns null on failure.
         let handle = unsafe { ffi::mpv_create() };
@@ -60,7 +65,6 @@ impl MpvPlayer {
             ffi::mpv_request_log_messages(handle, level.as_ptr());
         }
 
-        player.load_source(source)?;
         Ok(player)
     }
 
