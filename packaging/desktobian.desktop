@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Desktobian
+GenericName=Animated Wallpaper Engine
+Comment=Animated video & GIF wallpapers for Linux (X11 & Wayland)
+Exec=desktobian run
+Icon=preferences-desktop-wallpaper
+Terminal=false
+Categories=Utility;
+# Drop this in ~/.config/autostart/ to launch Desktobian with your session.
+X-GNOME-Autostart-enabled=true

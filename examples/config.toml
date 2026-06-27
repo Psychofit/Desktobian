@@ -1,0 +1,50 @@
+# Desktobian configuration.
+#
+# Copy this to ~/.config/desktobian/config.toml and edit to taste.
+#
+# The [default] section applies to every monitor. Add [output.<NAME>] sections
+# to override individual connectors. Use `desktobian list-outputs` to discover
+# the exact names (e.g. eDP-1, HDMI-A-1, DP-2).
+
+[default]
+# A video, GIF, image, a directory (played as a sorted playlist), or a
+# Wallpaper Engine project folder (one containing a project.json). `~` expands
+# to your home directory.
+source = "~/Wallpapers/forest-loop.mp4"
+
+# Mute audio. A wallpaper that blasts sound is rarely what you want.
+mute = true
+
+# Playback volume 0–100 (only relevant when mute = false).
+volume = 100
+
+# How the video is scaled to the monitor:
+#   cover   - fill the screen, cropping the overflow (keeps aspect) [default]
+#   contain - fit entirely on screen, letterboxed   (keeps aspect)
+#   fill    - stretch to fill, ignoring aspect ratio
+#   center  - native size, centered, no scaling
+fit = "cover"
+
+# Loop forever (recommended for wallpapers).
+loop = true
+
+# Frame-rate cap. 0 = follow the monitor's refresh rate.
+fps = 0
+
+# Hardware decode mode passed to mpv: auto-safe, auto, no, vaapi, nvdec, ...
+hwdec = "auto-safe"
+
+# Escape hatch: any extra raw mpv options. These are merged with (and applied
+# after) the defaults above, and per-output ones extend these.
+# mpv_options = ["--brightness=-5", "--saturation=10"]
+
+
+# --- Per-output overrides ---------------------------------------------------
+# Everything not specified here is inherited from [default].
+
+# [output.HDMI-A-1]
+# source = "~/Wallpapers/city-rain.mp4"
+
+# [output.eDP-1]
+# source = "~/Wallpapers/abstract"   # a directory: playlist of every clip in it
+# fit = "contain"
