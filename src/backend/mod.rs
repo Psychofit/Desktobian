@@ -13,10 +13,12 @@ pub mod wayland;
 pub mod x11;
 
 use std::path::Path;
+use std::sync::mpsc::Receiver;
 
 use crate::cli::Backend as BackendChoice;
 use crate::config::{Config, Resolved};
 use crate::error::{Error, Result};
+use crate::ipc::DaemonCommand;
 use crate::monitor::Output;
 use crate::source::{self, ResolvedSource};
 
@@ -36,7 +38,14 @@ pub trait Backend {
     fn outputs(&mut self) -> Result<Vec<Output>>;
 
     /// Run the wallpaper engine for the given plans until interrupted.
-    fn run(self: Box<Self>, plans: Vec<WallpaperPlan>) -> Result<()>;
+    ///
+    /// `commands` delivers live control requests (set/pause/…) from the IPC
+    /// server; the loop should drain it without blocking.
+    fn run(
+        self: Box<Self>,
+        plans: Vec<WallpaperPlan>,
+        commands: Receiver<DaemonCommand>,
+    ) -> Result<()>;
 }
 
 /// Create a backend according to the user's choice, auto-detecting when asked.

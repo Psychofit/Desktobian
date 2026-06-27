@@ -21,3 +21,8 @@ pub fn install_signal_handlers() {
 pub fn should_terminate() -> bool {
     TERMINATE.load(Ordering::SeqCst)
 }
+
+/// Request a graceful shutdown programmatically (e.g. from an IPC `stop`).
+pub fn request_shutdown() {
+    TERMINATE.store(true, Ordering::SeqCst);
+}

@@ -60,7 +60,7 @@ impl MpvPlayer {
             ffi::mpv_request_log_messages(handle, level.as_ptr());
         }
 
-        player.load_media(source)?;
+        player.load_source(source)?;
         Ok(player)
     }
 
@@ -138,12 +138,15 @@ impl MpvPlayer {
         Ok(())
     }
 
-    /// Queue the resolved media (single file or playlist) for playback.
-    fn load_media(&self, source: &ResolvedSource) -> Result<()> {
+    /// (Re)load the resolved media (single file or playlist) for playback.
+    ///
+    /// Safe to call on a live player to swap the wallpaper without recreating
+    /// the render context — the first entry replaces the current playlist.
+    pub fn load_source(&self, source: &ResolvedSource) -> Result<()> {
         for (i, path) in source.files.iter().enumerate() {
             let path_c = CString::new(path.to_string_lossy().as_bytes())
                 .map_err(|_| Error::mpv("media path contains an interior NUL byte"))?;
-            // First entry replaces the (empty) playlist; the rest append.
+            // First entry replaces the current playlist; the rest append.
             let mode: &[u8] = if i == 0 { b"replace\0" } else { b"append\0" };
             let cmd = [
                 b"loadfile\0".as_ptr() as *const c_char,
@@ -158,6 +161,42 @@ impl MpvPlayer {
             )?;
         }
         Ok(())
+    }
+
+    /// Pause or resume playback (`pause` property).
+    pub fn set_paused(&self, paused: bool) -> Result<()> {
+        let value = if paused { "yes" } else { "no" };
+        let name = CString::new("pause").unwrap();
+        let value_c = CString::new(value).unwrap();
+        // SAFETY: valid handle and NUL-terminated strings.
+        let ret =
+            unsafe { ffi::mpv_set_property_string(self.handle, name.as_ptr(), value_c.as_ptr()) };
+        check(ret, "set pause")
+    }
+
+    /// Toggle the pause state without needing to read it first.
+    pub fn toggle_paused(&self) -> Result<()> {
+        let cmd = [
+            b"cycle\0".as_ptr() as *const c_char,
+            b"pause\0".as_ptr() as *const c_char,
+            ptr::null(),
+        ];
+        // SAFETY: NUL-terminated argv of valid C strings, NULL terminated.
+        check(
+            unsafe { ffi::mpv_command(self.handle, cmd.as_ptr()) },
+            "cycle pause",
+        )
+    }
+
+    /// Mute or unmute audio (`mute` property).
+    pub fn set_muted(&self, muted: bool) -> Result<()> {
+        let value = if muted { "yes" } else { "no" };
+        let name = CString::new("mute").unwrap();
+        let value_c = CString::new(value).unwrap();
+        // SAFETY: valid handle and NUL-terminated strings.
+        let ret =
+            unsafe { ffi::mpv_set_property_string(self.handle, name.as_ptr(), value_c.as_ptr()) };
+        check(ret, "set mute")
     }
 
     /// Create the OpenGL render context. An OpenGL context **must** be current

@@ -8,6 +8,7 @@ mod backend;
 mod cli;
 mod config;
 mod error;
+mod ipc;
 mod logging;
 mod monitor;
 mod player;

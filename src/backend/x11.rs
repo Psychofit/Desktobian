@@ -12,6 +12,7 @@
 
 use std::os::raw::{c_int, c_long, c_uchar, c_uint, c_ulong};
 use std::ptr;
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use x11_dl::xlib::{self, Xlib};
@@ -19,6 +20,7 @@ use x11_dl::xrandr::Xrandr;
 
 use crate::backend::{Backend, WallpaperPlan};
 use crate::error::{Error, Result};
+use crate::ipc::DaemonCommand;
 use crate::monitor::Output;
 use crate::player::{MpvPlayer, NativeDisplay};
 use crate::render::{mpv_get_proc_address, EglDisplay, GlSurface};
@@ -244,7 +246,11 @@ impl Backend for X11Backend {
         Ok(outputs)
     }
 
-    fn run(self: Box<Self>, plans: Vec<WallpaperPlan>) -> Result<()> {
+    fn run(
+        self: Box<Self>,
+        plans: Vec<WallpaperPlan>,
+        commands: Receiver<DaemonCommand>,
+    ) -> Result<()> {
         util::install_signal_handlers();
 
         let mut instances = Vec::new();
@@ -263,6 +269,7 @@ impl Backend for X11Backend {
             instances.push(X11Instance {
                 player,
                 surface,
+                output_name: plan.output.name.clone(),
                 _window: window,
                 width: plan.output.width as i32,
                 height: plan.output.height as i32,
@@ -282,6 +289,12 @@ impl Backend for X11Backend {
         let mut event: xlib::XEvent = unsafe { std::mem::zeroed() };
         while !util::should_terminate() {
             let start = Instant::now();
+
+            // Apply any pending IPC control commands.
+            while let Ok(cmd) = commands.try_recv() {
+                let response = crate::ipc::process(&cmd.request, &instances);
+                let _ = cmd.reply.try_send(response);
+            }
 
             // Drain pending X events (we mostly just keep the queue clear).
             // SAFETY: display valid; event is a valid out-param.
@@ -315,9 +328,19 @@ impl Backend for X11Backend {
 struct X11Instance {
     player: MpvPlayer,
     surface: GlSurface,
+    output_name: String,
     _window: xlib::Window,
     width: i32,
     height: i32,
+}
+
+impl crate::ipc::Controllable for X11Instance {
+    fn output_name(&self) -> &str {
+        &self.output_name
+    }
+    fn player(&self) -> Option<&MpvPlayer> {
+        Some(&self.player)
+    }
 }
 
 /// Desired frame rate for a plan: explicit `fps`, else the monitor refresh,

@@ -94,6 +94,26 @@ Run it from your compositor's autostart (Sway `exec`, Hyprland `exec-once`, an
 X11 `.desktop` autostart entry, or the provided systemd user service in
 [`packaging/`](packaging/)).
 
+### Controlling a running daemon
+
+Once `desktobian run` is going, control it live over its control socket — no
+restart needed:
+
+```sh
+desktobian set ~/Wallpapers/other.mp4   # swap the wallpaper (all outputs)
+desktobian set ~/clip.mp4 -o HDMI-A-1   # ...just one output
+desktobian pause                        # freeze playback
+desktobian play                         # resume
+desktobian toggle                       # flip pause state
+desktobian mute / unmute                # audio
+desktobian status                       # which outputs are active
+desktobian stop                         # shut the daemon down
+```
+
+The socket lives at `$XDG_RUNTIME_DIR/desktobian.sock` (override with
+`$DESKTOBIAN_SOCKET`). This makes it trivial to bind wallpaper switching to a
+hotkey in your compositor.
+
 ## Configuration
 
 Desktobian reads `~/.config/desktobian/config.toml`. A `[default]` section

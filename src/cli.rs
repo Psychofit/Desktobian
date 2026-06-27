@@ -57,6 +57,26 @@ pub enum Command {
     Run,
     /// List detected monitors/outputs and exit.
     ListOutputs,
+    /// Swap the wallpaper on a running daemon (use -o to target outputs).
+    Set {
+        /// Wallpaper source: file, directory, or Wallpaper Engine project folder.
+        #[arg(value_name = "PATH")]
+        source: PathBuf,
+    },
+    /// Pause playback on a running daemon.
+    Pause,
+    /// Resume playback on a running daemon.
+    Play,
+    /// Toggle pause on a running daemon.
+    Toggle,
+    /// Mute audio on a running daemon.
+    Mute,
+    /// Unmute audio on a running daemon.
+    Unmute,
+    /// Ask a running daemon to shut down.
+    Stop,
+    /// Query a running daemon's status.
+    Status,
 }
 
 /// Which display backend to drive.

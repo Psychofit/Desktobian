@@ -12,6 +12,7 @@
 //! Works on wlroots-based compositors (Sway, Hyprland, river, Wayfire, …).
 
 use std::os::raw::c_void;
+use std::sync::mpsc::Receiver;
 
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
@@ -36,6 +37,7 @@ use wayland_egl::WlEglSurface;
 
 use crate::backend::{Backend, WallpaperPlan};
 use crate::error::{Error, Result};
+use crate::ipc::DaemonCommand;
 use crate::monitor::Output;
 use crate::player::{MpvPlayer, NativeDisplay};
 use crate::render::{mpv_get_proc_address, EglDisplay, GlSurface};
@@ -54,10 +56,20 @@ struct WlGl {
 /// One output's wallpaper surface.
 struct WlInstance {
     layer: LayerSurface,
+    output_name: String,
     plan_index: usize,
     width: i32,
     height: i32,
     gl: Option<WlGl>,
+}
+
+impl crate::ipc::Controllable for WlInstance {
+    fn output_name(&self) -> &str {
+        &self.output_name
+    }
+    fn player(&self) -> Option<&MpvPlayer> {
+        self.gl.as_ref().map(|g| &g.player)
+    }
 }
 
 /// The dispatched Wayland application state.
@@ -165,7 +177,11 @@ impl Backend for WaylandBackend {
         Ok(outputs)
     }
 
-    fn run(self: Box<Self>, plans: Vec<WallpaperPlan>) -> Result<()> {
+    fn run(
+        self: Box<Self>,
+        plans: Vec<WallpaperPlan>,
+        commands: Receiver<DaemonCommand>,
+    ) -> Result<()> {
         util::install_signal_handlers();
         let WaylandBackend {
             mut event_queue,
@@ -205,6 +221,7 @@ impl Backend for WaylandBackend {
 
             state.instances.push(WlInstance {
                 layer,
+                output_name: plans[idx].output.name.clone(),
                 plan_index: idx,
                 width: 0,
                 height: 0,
@@ -218,6 +235,15 @@ impl Backend for WaylandBackend {
             event_queue
                 .blocking_dispatch(&mut state)
                 .map_err(|e| Error::Wayland(format!("dispatch failed: {e}")))?;
+
+            // Apply any pending IPC control commands. While a video is playing
+            // the compositor delivers frame callbacks continuously, so this runs
+            // promptly; a fully-occluded/idle surface may defer until the next
+            // event.
+            while let Ok(cmd) = commands.try_recv() {
+                let response = crate::ipc::process(&cmd.request, &state.instances);
+                let _ = cmd.reply.try_send(response);
+            }
         }
 
         log::info!("Shutting down Wayland backend");

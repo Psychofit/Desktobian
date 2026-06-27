@@ -17,7 +17,9 @@ Wayland.
 
 ## v0.2 — Polish & control
 
-- [ ] Running-daemon IPC + `desktobian set <path>` to swap wallpapers live
+- [x] Running-daemon IPC (Unix socket) + client commands:
+      `set` / `pause` / `play` / `toggle` / `mute` / `unmute` / `status` / `stop`
+- [ ] `reload` to re-read the config file at runtime
 - [ ] Pause/throttle when a fullscreen app is focused or on battery
 - [ ] Hotplug: react to monitors being connected/disconnected at runtime
 - [ ] Proper HiDPI / fractional-scale supersampling on Wayland
