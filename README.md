@@ -144,6 +144,20 @@ source = "~/Wallpapers/city-rain.mp4"
 | `hwdec`       | `auto-safe` | mpv hardware-decode mode (`no`, `vaapi`, `nvdec`, …)   |
 | `mpv_options` | `[]`        | Raw mpv options passthrough, e.g. `["--brightness=-5"]`|
 
+## KDE Plasma
+
+On a full **KDE Plasma** desktop, the recommended way to use Desktobian is the
+**native Plasma wallpaper plugin** in [`kde/`](kde/) — it plays the video inside
+Plasma's own wallpaper layer, so your **desktop icons stay visible** (the
+standalone binary's external window would cover them). Install it with:
+
+```sh
+cd kde && ./install.sh
+```
+
+then right-click the desktop → *Configure Desktop and Wallpaper* → set
+*Wallpaper type* to **Desktobian Video**. See [kde/README.md](kde/README.md).
+
 ## Limitations (v0.1)
 
 - Audio is **muted by default** (`mute = true`) — set `mute = false` in the
