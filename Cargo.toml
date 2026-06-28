@@ -1,0 +1,54 @@
+[package]
+name = "desktobian"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "An open-source Wallpaper Engine alternative for Linux: animated video & GIF wallpapers on X11 and Wayland."
+authors = ["Desktobian contributors"]
+license = "Apache-2.0"
+repository = "https://github.com/psychofit/desktobian"
+readme = "README.md"
+keywords = ["wallpaper", "wayland", "x11", "mpv", "desktop"]
+categories = ["multimedia", "command-line-utilities"]
+default-run = "desktobian"
+
+[[bin]]
+name = "desktobian"
+path = "src/main.rs"
+
+[workspace]
+members = ["crates/desktobian-core", "crates/desktobian-gui"]
+
+[dependencies]
+desktobian-core = { path = "crates/desktobian-core" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+anyhow = "1"
+thiserror = "2"
+log = "0.4"
+env_logger = "0.11"
+directories = "5"
+libc = "0.2"
+khronos-egl = { version = "6", features = ["static"] }
+
+# X11 backend (Xlib + Xrandr loaded at runtime via dlopen).
+x11-dl = "2"
+
+# Wayland backend (wlr-layer-shell via smithay-client-toolkit).
+wayland-client = "0.31"
+wayland-egl = "0.32"
+smithay-client-toolkit = { version = "0.19", default-features = false }
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"

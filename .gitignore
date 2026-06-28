@@ -1,0 +1,20 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local runtime / logs
+*.log
+
+# Local tooling settings
+.claude/settings.local.json
+
+# Tauri generated schemas
+/crates/desktobian-gui/gen/

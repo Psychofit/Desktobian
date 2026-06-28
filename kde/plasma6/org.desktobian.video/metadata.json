@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Desktobian contributors"
+            }
+        ],
+        "Category": "",
+        "Description": "Animated video & GIF wallpapers, integrated natively into the Plasma desktop (keeps your desktop icons).",
+        "Id": "org.desktobian.video",
+        "License": "Apache-2.0",
+        "Name": "Desktobian Video",
+        "Version": "0.1.0",
+        "Website": "https://github.com/psychofit/desktobian"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
