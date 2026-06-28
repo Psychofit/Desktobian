@@ -9,6 +9,11 @@
         <entry name="VideoUrl" type="Url">
             <default></default>
         </entry>
+        <!-- Path to a web wallpaper's index.html. When set, the wallpaper shows
+             this web page instead of the video. -->
+        <entry name="WebUrl" type="Url">
+            <default></default>
+        </entry>
         <!-- Mute audio (default: yes — a wallpaper shouldn't blast sound). -->
         <entry name="Muted" type="Bool">
             <default>true</default>

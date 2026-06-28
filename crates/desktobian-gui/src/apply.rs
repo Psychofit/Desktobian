@@ -65,15 +65,29 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
                d.writeConfig('FillMode', {fill}); \
              }}"
         )
+    } else if is_web(&req.path) {
+        // Web wallpaper: our plugin shows a WebEngineView when WebUrl is set.
+        // Clear VideoUrl so it doesn't fall back to video mode.
+        format!(
+            "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
+               var d = ds[i]; \
+               d.wallpaperPlugin = 'org.desktobian.video'; \
+               d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
+               d.writeConfig('WebUrl', '{url}'); \
+               d.writeConfig('VideoUrl', ''); \
+             }}"
+        )
     } else {
         let muted = if req.muted { "true" } else { "false" };
         let fill = req.fill_mode;
+        // Clear WebUrl so the plugin uses video mode rather than a stale web page.
         format!(
             "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
                var d = ds[i]; \
                d.wallpaperPlugin = 'org.desktobian.video'; \
                d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
                d.writeConfig('VideoUrl', '{url}'); \
+               d.writeConfig('WebUrl', ''); \
                d.writeConfig('Muted', {muted}); \
                d.writeConfig('FillMode', {fill}); \
              }}"
@@ -203,9 +217,27 @@ fn is_image(path: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn is_web(path: &str) -> bool {
+    matches!(
+        std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase())
+            .as_deref(),
+        Some("html") | Some("htm")
+    )
+}
+
 /// Tell the standalone engine daemon to switch wallpaper over the control socket.
 fn apply_engine(req: &ApplyRequest) -> ApplyResult {
     use desktobian_core::ipc::{send, Request};
+    if is_web(&req.path) {
+        return ApplyResult {
+            ok: false,
+            message: "Web wallpapers currently require KDE Plasma.".into(),
+            method: "engine-daemon".into(),
+        };
+    }
     let request = Request::Set {
         source: PathBuf::from(&req.path),
         outputs: Vec::new(),

@@ -55,3 +55,7 @@ is required.
 | -------------- | ---------------------------------------------------------------------- | ------------------------------ |
 | Video / GIF    | `org.desktobian.video` plugin via plasmashell `evaluateScript`         | `ipc::send(Request::Set { … })` to the daemon |
 | Still image    | `org.kde.image` (KDE's built-in image wallpaper)                       | engine displays it via mpv     |
+| Web (HTML/JS)  | `org.desktobian.video` plugin's `WebUrl` (QtWebEngine)                 | not supported yet              |
+
+> Web wallpapers need the QtWebEngine QML module (`qml-module-qtwebengine` on
+> Plasma 5, `qml6-module-qtwebengine` on Plasma 6).
