@@ -34,32 +34,82 @@ pub fn detect() -> EnvInfo {
     }
 }
 
+/// Wallpaper Engine's Steam appid.
+const WE_APPID: &str = "431960";
+
 /// Default folders to scan for wallpapers: the user's Videos directory, a
 /// `~/Wallpapers` folder, and the Steam Workshop folder for Wallpaper Engine
-/// (so existing video wallpapers show up automatically).
+/// across every detected Steam library (so existing wallpapers show up
+/// automatically — even on a second drive).
 pub fn default_library_folders() -> Vec<String> {
     let mut out = Vec::new();
     if let Some(dirs) = directories::UserDirs::new() {
         if let Some(videos) = dirs.video_dir() {
             push_if_dir(&mut out, videos.to_path_buf());
         }
-        let home = dirs.home_dir();
-        push_if_dir(&mut out, home.join("Wallpapers"));
-        // Steam Workshop content for Wallpaper Engine (appid 431960).
+        push_if_dir(&mut out, dirs.home_dir().join("Wallpapers"));
+    }
+    for lib in steam_library_paths() {
         push_if_dir(
             &mut out,
-            home.join(".steam/steam/steamapps/workshop/content/431960"),
-        );
-        push_if_dir(
-            &mut out,
-            home.join(".local/share/Steam/steamapps/workshop/content/431960"),
+            lib.join("steamapps/workshop/content").join(WE_APPID),
         );
     }
     out
 }
 
+/// All Steam library roots: the standard install locations plus any extra
+/// libraries registered in `libraryfolders.vdf` (e.g. on another drive).
+fn steam_library_paths() -> Vec<std::path::PathBuf> {
+    use std::path::PathBuf;
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Some(dirs) = directories::UserDirs::new() {
+        let home = dirs.home_dir();
+        roots.push(home.join(".steam/steam"));
+        roots.push(home.join(".local/share/Steam"));
+        // Flatpak Steam.
+        roots.push(home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"));
+    }
+
+    // Parse libraryfolders.vdf from the known roots to find extra libraries.
+    let mut extra = Vec::new();
+    for root in &roots {
+        for vdf in [
+            root.join("steamapps/libraryfolders.vdf"),
+            root.join("config/libraryfolders.vdf"),
+        ] {
+            if let Ok(text) = std::fs::read_to_string(&vdf) {
+                extra.extend(parse_vdf_library_paths(&text));
+            }
+        }
+    }
+    roots.extend(extra);
+
+    roots.sort();
+    roots.dedup();
+    roots
+}
+
+/// Pull the `"path"  "<dir>"` values out of a Steam `libraryfolders.vdf`.
+fn parse_vdf_library_paths(text: &str) -> Vec<std::path::PathBuf> {
+    text.lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if !line.starts_with("\"path\"") {
+                return None;
+            }
+            // `"path"   "/mnt/games/SteamLibrary"`
+            let value = line.split('"').nth(3)?;
+            Some(std::path::PathBuf::from(value.replace("\\\\", "/")))
+        })
+        .collect()
+}
+
 fn push_if_dir(out: &mut Vec<String>, path: std::path::PathBuf) {
     if path.is_dir() {
-        out.push(path.to_string_lossy().into_owned());
+        let s = path.to_string_lossy().into_owned();
+        if !out.contains(&s) {
+            out.push(s);
+        }
     }
 }

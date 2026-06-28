@@ -64,6 +64,7 @@ function renderGrid() {
 function card(item) {
   const c = document.createElement("div");
   c.className = "card";
+  if (!item.supported) c.classList.add("unsupported");
   if (item.path === state.appliedPath) c.classList.add("applied");
   if (state.selected && item.id === state.selected.id) c.classList.add("selected");
 
@@ -71,17 +72,33 @@ function card(item) {
     ? `<img class="thumb" src="${item.thumbnail}" alt="" />`
     : `<div class="thumb placeholder">🎞</div>`;
 
+  const soon = item.supported
+    ? ""
+    : `<div class="soon-tag">${escapeHtml(item.kind)} — soon</div>`;
+
   c.innerHTML = `
     ${thumb}
+    ${soon}
     <div class="card-body">
       <span class="card-name" title="${escapeHtml(item.path)}">${escapeHtml(item.name)}</span>
-      <span class="kind">${item.kind}</span>
+      <span class="kind">${escapeHtml(item.kind)}</span>
     </div>`;
 
-  c.addEventListener("click", () => select(item));
-  c.addEventListener("dblclick", () => {
+  c.addEventListener("click", () => {
+    if (!item.supported) {
+      setStatus(
+        `${item.kind} wallpapers aren't supported yet — coming soon.`,
+        "err",
+      );
+      return;
+    }
     select(item);
-    applySelected();
+  });
+  c.addEventListener("dblclick", () => {
+    if (item.supported) {
+      select(item);
+      applySelected();
+    }
   });
   return c;
 }
