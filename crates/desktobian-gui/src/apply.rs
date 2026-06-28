@@ -53,12 +53,16 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
     // The path is percent-encoded (no quotes), so embedding it in single-quoted
     // JS strings is safe.
     let script = if is_image(&req.path) {
+        // org.kde.image's FillMode uses the same enum as ours
+        // (0 = stretch, 1 = fit, 2 = crop), so pass it straight through.
+        let fill = req.fill_mode;
         format!(
             "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
                var d = ds[i]; \
                d.wallpaperPlugin = 'org.kde.image'; \
                d.currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General']; \
                d.writeConfig('Image', '{url}'); \
+               d.writeConfig('FillMode', {fill}); \
              }}"
         )
     } else {
@@ -93,39 +97,99 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
     }
 }
 
-/// Revert the desktop to a plain default wallpaper. Used when the GUI quits.
+/// A snapshot of the desktop's wallpaper, taken before we change anything, so it
+/// can be restored verbatim when the GUI quits.
+#[derive(Debug, Clone)]
+pub struct SavedWallpaper {
+    plugin: String,
+    image: String,
+    video: String,
+}
+
+/// Capture the current KDE wallpaper (plugin + Image/VideoUrl). Returns `None`
+/// off KDE or if plasmashell can't be reached.
+pub fn capture() -> Option<SavedWallpaper> {
+    if !crate::env::detect().is_kde {
+        return None;
+    }
+    let script = "var d = desktops()[0]; var p = d.wallpaperPlugin; \
+                  d.currentConfigGroup = ['Wallpaper', p, 'General']; \
+                  print(p); print(d.readConfig('Image') || ''); \
+                  print(d.readConfig('VideoUrl') || '');";
+    let out = run_plasma_script_output(script)?;
+    let mut lines = out.lines();
+    let plugin = lines.next()?.trim().to_string();
+    if plugin.is_empty() {
+        return None;
+    }
+    Some(SavedWallpaper {
+        plugin,
+        image: lines.next().unwrap_or("").trim().to_string(),
+        video: lines.next().unwrap_or("").trim().to_string(),
+    })
+}
+
+/// Restore a previously [`capture`]d wallpaper.
+pub fn restore(saved: &SavedWallpaper) {
+    let plugin = js_escape(&saved.plugin);
+    let mut script = format!(
+        "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
+           var d = ds[i]; \
+           d.wallpaperPlugin = '{plugin}'; \
+           d.currentConfigGroup = ['Wallpaper', '{plugin}', 'General']; "
+    );
+    if !saved.image.is_empty() {
+        script += &format!("d.writeConfig('Image', '{}'); ", js_escape(&saved.image));
+    }
+    if !saved.video.is_empty() {
+        script += &format!("d.writeConfig('VideoUrl', '{}'); ", js_escape(&saved.video));
+    }
+    script += "}";
+    let _ = run_plasma_script(&script);
+}
+
+/// Fallback revert when we have no captured snapshot (e.g. off KDE): drop back
+/// to a plain image wallpaper on KDE, or stop the engine daemon elsewhere.
 pub fn revert_to_default() {
     if crate::env::detect().is_kde {
-        // Switch back to KDE's standard image wallpaper plugin.
         let script = "var ds = desktops(); for (var i = 0; i < ds.length; i++) { \
                         ds[i].wallpaperPlugin = 'org.kde.image'; }";
         let _ = run_plasma_script(script);
     } else {
-        // Ask the engine daemon to shut down (which clears the wallpaper).
         use desktobian_core::ipc::{send, Request};
         let _ = send(&Request::Stop);
     }
 }
 
+/// Escape a string for safe embedding inside a single-quoted JS literal.
+fn js_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('\'', "\\'")
+}
+
 /// Run a Plasma scripting snippet through plasmashell, trying the available
 /// `qdbus` variants. Returns whether it succeeded.
 fn run_plasma_script(script: &str) -> bool {
+    run_plasma_script_output(script).is_some()
+}
+
+/// Like [`run_plasma_script`] but returns the script's printed output on success.
+fn run_plasma_script_output(script: &str) -> Option<String> {
     for tool in ["qdbus6", "qdbus", "qdbus-qt5"] {
-        if let Ok(status) = std::process::Command::new(tool)
+        if let Ok(out) = std::process::Command::new(tool)
             .args([
                 "org.kde.plasmashell",
                 "/PlasmaShell",
                 "org.kde.PlasmaShell.evaluateScript",
                 script,
             ])
-            .status()
+            .output()
         {
-            if status.success() {
-                return true;
+            if out.status.success() {
+                return Some(String::from_utf8_lossy(&out.stdout).into_owned());
             }
         }
     }
-    false
+    None
 }
 
 /// Still-image extensions (these are applied via KDE's image wallpaper).

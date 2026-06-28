@@ -110,11 +110,18 @@ fn main() {
         .expect("error while running the Desktobian GUI");
 }
 
-/// Build the system tray icon and its menu.
+/// The wallpaper that was set before Desktobian touched it, so we can put it
+/// back on quit. Managed as Tauri state.
+struct OriginalWallpaper(std::sync::Mutex<Option<apply::SavedWallpaper>>);
+
+/// Build the system tray icon and its menu, and snapshot the current wallpaper.
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::menu::{Menu, MenuItem};
     use tauri::tray::TrayIconBuilder;
     use tauri::Manager;
+
+    // Remember the wallpaper that was there at launch so "Quit" can restore it.
+    app.manage(OriginalWallpaper(std::sync::Mutex::new(apply::capture())));
 
     let show = MenuItem::with_id(app, "show", "Show Desktobian", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit (restore wallpaper)", true, None::<&str>)?;
@@ -131,8 +138,18 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             "quit" => {
-                // Restore a default wallpaper before exiting, then quit.
-                apply::revert_to_default();
+                // Restore the original wallpaper (or fall back to a default),
+                // then quit.
+                let original = app
+                    .state::<OriginalWallpaper>()
+                    .0
+                    .lock()
+                    .ok()
+                    .and_then(|g| g.clone());
+                match original {
+                    Some(saved) => apply::restore(&saved),
+                    None => apply::revert_to_default(),
+                }
                 app.exit(0);
             }
             _ => {}
