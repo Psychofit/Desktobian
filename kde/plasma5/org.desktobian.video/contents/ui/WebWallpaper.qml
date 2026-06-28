@@ -15,6 +15,12 @@ WebEngineView {
     anchors.fill: parent
     url: wallpaper.configuration.WebUrl
 
+    // Passive by input: don't grab the mouse, so right-clicking the desktop
+    // still opens Plasma's context menu instead of QtWebEngine's own browser
+    // menu (Back / Reload / Save Image …). The page keeps rendering and
+    // animating; web wallpapers don't need pointer interaction yet.
+    enabled: false
+
     userScripts: [
         WebEngineScript {
             injectionPoint: WebEngineScript.DocumentCreation
