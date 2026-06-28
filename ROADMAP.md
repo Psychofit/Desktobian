@@ -42,6 +42,8 @@ Wayland.
       browser surface (WebKitGTK/CEF)
 - [x] Basic Wallpaper Engine JS API shim (`wallpaperRegisterAudioListener`,
       `wallpaperPropertyListener` defaults) injected into web wallpapers
+- [x] Serve web wallpapers over a localhost http server so the page can
+      `fetch()` local assets (Rive/Three.js runtimes, JSON) that `file://` blocks
 - [ ] Feed real desktop audio (PipeWire FFT) to audio-reactive web wallpapers
 - [ ] Pass each wallpaper's real default properties from project.json
 - [ ] Wallpaper Engine **web** project support (`index.html` + assets)
