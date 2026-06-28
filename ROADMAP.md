@@ -45,7 +45,10 @@ Wayland.
 - [ ] Feed real desktop audio (PipeWire FFT) to audio-reactive web wallpapers
 - [ ] Pass each wallpaper's real default properties from project.json
 - [ ] Wallpaper Engine **web** project support (`index.html` + assets)
-- [ ] Audio-responsive + mouse-interaction plumbing for web wallpapers
+- [x] Mouse-interaction plumbing for web wallpapers (cursor movement +
+      middle-click forwarded to the page as DOM events; right-click is left to
+      Plasma's desktop context menu)
+- [ ] Audio-responsive plumbing for web wallpapers
 
 ## v0.4 — Scene wallpapers
 
