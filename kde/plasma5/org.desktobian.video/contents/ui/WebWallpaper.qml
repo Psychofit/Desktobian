@@ -8,12 +8,13 @@
  * we-api-shim.js is injected before the wallpaper's own scripts so wallpapers
  * that wait for Wallpaper Engine's JS API start animating.
  *
- * Input model: the WebEngineView is kept input-passive (enabled:false) so left-
- * and right-clicks fall through to the Plasma desktop — right-click still opens
- * the normal containment menu instead of QtWebEngine's browser menu. Cursor
- * movement and middle-clicks are forwarded to the page as synthetic DOM mouse
- * events (see we-api-shim.js), so interactive wallpapers still react to the
- * pointer without stealing the desktop's right-click menu.
+ * Input model (controlled by the "Web interaction" config option):
+ *  - off (default): the view is input-passive, so left/right clicks fall through
+ *    to the Plasma desktop (right-click opens the normal containment menu).
+ *    Movement and left/middle-clicks are forwarded to the page as synthetic DOM
+ *    events (see we-api-shim.js) for best-effort parallax/clicks.
+ *  - on: the view takes real (trusted) mouse input so interactive wallpapers
+ *    respond fully; the right button is swallowed (no browser/desktop menu).
  */
 import QtQuick 2.15
 import QtWebEngine 1.1
@@ -45,16 +46,20 @@ Item {
         ]
     }
 
-    // Forward cursor movement + left/middle-clicks to the page. The right button
-    // is deliberately not accepted, so it falls through to the Plasma desktop and
-    // opens the normal containment menu.
+    // Mouse handling adapts to the "Web interaction" option:
+    //  - off (view passive): forward movement + left/middle-clicks to the page
+    //    as synthetic events, and let the right button fall through to Plasma's
+    //    desktop menu.
+    //  - on (view native): accept only the right button and swallow it, so it
+    //    neither triggers the wallpaper nor shows a browser menu; left/middle/
+    //    movement are not accepted here and reach the view as real (trusted)
+    //    input, which interactive wallpapers actually respond to.
     MouseArea {
         anchors.fill: parent
-        // Only forward while the view is passive; in native-input mode the view
-        // handles the mouse itself, so this must not intercept events.
-        enabled: !view.enabled
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-        hoverEnabled: true
+        readonly property bool interactive: view.enabled
+        acceptedButtons: interactive ? Qt.RightButton
+                                     : (Qt.LeftButton | Qt.MiddleButton)
+        hoverEnabled: !interactive
         property double lastMove: 0
 
         function send(type, x, y, button) {
@@ -68,13 +73,23 @@ Item {
         }
 
         onPositionChanged: {
+            if (interactive)
+                return;
             var now = Date.now();
             if (now - lastMove < 16) // throttle to ~60 Hz
                 return;
             lastMove = now;
             send("move", mouse.x, mouse.y, 0);
         }
-        onPressed: send("down", mouse.x, mouse.y, domButton(mouse.button))
-        onReleased: send("up", mouse.x, mouse.y, domButton(mouse.button))
+        onPressed: {
+            if (interactive)
+                return; // right button swallowed; nothing to forward
+            send("down", mouse.x, mouse.y, domButton(mouse.button));
+        }
+        onReleased: {
+            if (interactive)
+                return;
+            send("up", mouse.x, mouse.y, domButton(mouse.button));
+        }
     }
 }

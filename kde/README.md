@@ -44,8 +44,12 @@ installer picks the right one automatically.
   enough for most parallax/hover effects). Some wallpapers ignore synthetic
   input; for those, tick **"Forward mouse to web wallpapers"** in the wallpaper
   config (right-click the desktop → *Configure Desktop and Wallpaper…*). That
-  gives the wallpaper full native mouse input, but while it's on the desktop's
-  right-click menu is unavailable (the wallpaper receives the right button).
+  feeds the wallpaper real (trusted) left/middle/movement input, which those
+  wallpapers respond to; the right button is then reserved (it opens neither a
+  browser nor the desktop menu) while that wallpaper is active. There is no way
+  to keep the desktop's right-click menu *and* feed real clicks to the page from
+  a pure-QML plugin — the web view claims every button — so this is a choice
+  per wallpaper.
 
 ## Install
 
