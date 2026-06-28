@@ -28,7 +28,17 @@ installer picks the right one automatically.
 
   If a web wallpaper shows up **black**, QtWebEngine couldn't initialise its GPU
   context inside plasmashell. Run `./enable-web.sh` (installs a Plasma env hook
-  with `--disable-gpu --no-sandbox --in-process-gpu`) and log out/in.
+  with `--disable-gpu --no-sandbox --in-process-gpu`) and log out/in. If a
+  heavier WebGL wallpaper is still black or slow, try the hardware-accelerated
+  variant instead — `./enable-web.sh --gpu` — and log out/in; whichever renders
+  your wallpapers wins (re-run to switch).
+
+  **Mouse interaction:** the web view is kept input-passive, so right-clicking
+  the desktop still opens Plasma's normal menu. Cursor movement and
+  left/middle-clicks are forwarded to the wallpaper, so interactive wallpapers
+  (parallax, clickable elements) keep working. The trade-off is that left-click
+  on the empty desktop no longer rubber-band-selects icons while a web wallpaper
+  is active.
 
 ## Install
 
