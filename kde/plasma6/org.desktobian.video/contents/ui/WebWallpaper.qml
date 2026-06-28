@@ -25,7 +25,40 @@ Item {
     WebEngineView {
         id: view
         anchors.fill: parent
-        url: wallpaper.configuration.WebUrl
+        readonly property url fileUrl: wallpaper.configuration.WebUrl
+        property bool retriedHttp: false
+
+        // Serve local wallpapers through the Desktobian localhost server so the
+        // page gets an http:// origin — QtWebEngine can't fetch() file:// URLs,
+        // which breaks wallpapers that load local assets (Rive .riv, JSON, …).
+        // If the server isn't up yet we retry once, then fall back to file://
+        // so simple wallpapers still work without it.
+        function servedUrl(u) {
+            var s = u.toString();
+            if (s.indexOf("file://") === 0)
+                return "http://127.0.0.1:47821" + s.substring(7);
+            return s;
+        }
+        url: servedUrl(fileUrl)
+
+        Timer {
+            id: retryTimer
+            interval: 1500
+            onTriggered: view.url = view.servedUrl(view.fileUrl)
+        }
+        onLoadingChanged: (loadRequest) => {
+            if (loadRequest.status !== WebEngineView.LoadFailedStatus)
+                return;
+            if (url.toString().indexOf("http://127.0.0.1:47821") !== 0
+                    || view.fileUrl.toString().length === 0)
+                return;
+            if (!view.retriedHttp) {
+                view.retriedHttp = true;
+                retryTimer.start(); // server may still be starting up
+            } else {
+                url = view.fileUrl; // give up on http, load the file directly
+            }
+        }
 
         // Input model depends on the "Web interaction" config option:
         //  - off (default): input-passive, so left/right clicks fall through to

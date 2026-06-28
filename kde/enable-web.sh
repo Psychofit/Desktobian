@@ -42,6 +42,36 @@ EOS
 
 echo "Installed $file (mode: $mode)"
 echo "Flags: $flags"
+
+# --- Local static server for web wallpapers --------------------------------
+# QtWebEngine can't fetch() file:// URLs, so web wallpapers that load local
+# assets (e.g. Rive .riv files) need to be served over http. Install a tiny
+# localhost-only server, enable it at login (XDG autostart) and start it now.
+if command -v python3 >/dev/null 2>&1; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/desktobian"
+  mkdir -p "$data_dir"
+  install -m 0755 "$script_dir/desktobian-webserver.py" "$data_dir/desktobian-webserver.py"
+
+  autostart_dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+  mkdir -p "$autostart_dir"
+  cat > "$autostart_dir/desktobian-webserver.desktop" <<EOS
+[Desktop Entry]
+Type=Application
+Name=Desktobian Web Wallpaper Server
+Comment=Serves web wallpapers over http://127.0.0.1:47821 so they can fetch local assets
+Exec=python3 $data_dir/desktobian-webserver.py
+X-KDE-autostart-phase=1
+NoDisplay=true
+EOS
+
+  # A second instance just exits (port in use), so this is safe to re-run.
+  nohup python3 "$data_dir/desktobian-webserver.py" >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+  echo "Web server: http://127.0.0.1:47821 (autostart enabled, started now)"
+else
+  echo "WARNING: python3 not found — web wallpapers that fetch local assets (e.g. Rive) won't load."
+fi
 echo
 echo "Log out and back in (or reboot) for it to take effect, then re-apply the"
 echo "web wallpaper."

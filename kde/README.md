@@ -33,10 +33,15 @@ installer picks the right one automatically.
   variant instead — `./enable-web.sh --gpu` — and log out/in; whichever renders
   your wallpapers wins (re-run to switch).
 
-  Some web wallpapers fetch a runtime (Rive, Three.js, …) from a CDN or load
-  local files; `enable-web.sh` relaxes the browser's CORS/file-access checks so
-  those load instead of rendering black. They still need a working network
-  connection to reach the CDN.
+  Some web wallpapers fetch a runtime (Rive, Three.js, …) from a CDN or read
+  local asset files via `fetch()`. Because QtWebEngine can't `fetch()` over
+  `file://`, `enable-web.sh` also installs a tiny **localhost-only static
+  server** (`http://127.0.0.1:47821`, autostarted at login) and the plugin loads
+  web wallpapers through it so the page gets a real http origin and those
+  fetches work. It needs `python3`, serves only files you can already read, and
+  is not reachable from the network. If the server isn't running the plugin
+  falls back to `file://`, so simple wallpapers still work. CDN-based wallpapers
+  also need a working network connection.
 
   **Mouse interaction:** by default the web view is input-passive, so
   right-clicking the desktop still opens Plasma's normal menu, while cursor
