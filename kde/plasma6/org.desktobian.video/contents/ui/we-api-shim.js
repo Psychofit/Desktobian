@@ -37,6 +37,30 @@
   window.wallpaperRequestRandomFileForProperty = noop;
   window.wallpaperPropertyListener = window.wallpaperPropertyListener || {};
 
+  // --- Forwarded pointer interaction (Desktobian) ------------------------
+  // The Plasma plugin keeps the web view input-passive (so the desktop's
+  // right-click menu keeps working) and instead forwards cursor movement and
+  // middle-clicks here as synthetic DOM mouse events, so interactive wallpapers
+  // (cursor parallax, click handlers) still react to the pointer.
+  var buttonsBit = { 0: 1, 1: 4, 2: 2 }; // DOM "buttons" bitmask per button id
+  window.__desktobianDispatchMouse = function (type, x, y, button) {
+    try {
+      var target = document.elementFromPoint(x, y) || document.body || document;
+      var ev = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        clientX: x,
+        clientY: y,
+        screenX: x,
+        screenY: y,
+        button: button,
+        buttons: type === "mousedown" ? buttonsBit[button] || 0 : 0,
+      });
+      target.dispatchEvent(ev);
+    } catch (e) {}
+  };
+
   // --- Kick off the wallpaper with default properties --------------------
   function applyDefaults() {
     var l = window.wallpaperPropertyListener;
