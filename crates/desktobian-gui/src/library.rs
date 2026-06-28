@@ -123,7 +123,28 @@ fn we_project_item(dir: &Path, with_thumbnails: bool) -> Option<WallpaperItem> {
         });
     }
 
-    // scene / web / application: list it (with its preview) but not applyable.
+    if kind == "web" {
+        // The applyable path is the web wallpaper's entry HTML.
+        let file = meta
+            .file
+            .clone()
+            .unwrap_or_else(|| "index.html".to_string());
+        let entry = dir.join(&file);
+        if !entry.is_file() {
+            return None;
+        }
+        return Some(WallpaperItem {
+            id: short_hash(&entry.to_string_lossy()),
+            name,
+            path: entry.to_string_lossy().into_owned(),
+            kind: "web".into(),
+            supported: true,
+            // ffmpeg can't thumbnail an HTML page; use the project preview only.
+            thumbnail: preview.and_then(|p| maybe_thumb(with_thumbnails, &p)),
+        });
+    }
+
+    // scene / application: list it (with its preview) but not applyable.
     Some(WallpaperItem {
         id: short_hash(&dir.to_string_lossy()),
         name,

@@ -35,7 +35,13 @@ Wayland.
 
 ## v0.3 — Web wallpapers
 
-- [ ] Embedded browser surface (WebKitGTK or CEF) on the background layer
+- [x] **Web wallpapers on KDE** via QtWebEngine in the Plasma plugin
+      (`WebUrl`); GUI imports & applies Wallpaper Engine `web` projects
+      (experimental)
+- [ ] Web wallpapers for the standalone engine (wlroots/X11) via an embedded
+      browser surface (WebKitGTK/CEF)
+- [ ] Wallpaper Engine JS API shims (`window.wallpaperPropertyListener`,
+      audio listener) for wallpapers that need them
 - [ ] Wallpaper Engine **web** project support (`index.html` + assets)
 - [ ] Audio-responsive + mouse-interaction plumbing for web wallpapers
 
