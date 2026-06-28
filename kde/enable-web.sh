@@ -19,10 +19,15 @@ if [[ "${1:-}" == "--gpu" ]]; then
   mode="gpu"
 fi
 
+# Flags that help in plasmashell regardless of GPU mode. --disable-web-security
+# and --allow-file-access-from-files let web wallpapers load cross-origin / local
+# assets: many fetch a runtime (e.g. Rive/Three.js WASM) from a CDN or read local
+# files from a file:// page, which CORS would otherwise block (black screen).
+common="--no-sandbox --in-process-gpu --disable-web-security --allow-file-access-from-files"
 if [[ "$mode" == "gpu" ]]; then
-  flags="--no-sandbox --in-process-gpu --ignore-gpu-blocklist --enable-gpu-rasterization"
+  flags="$common --ignore-gpu-blocklist --enable-gpu-rasterization"
 else
-  flags="--disable-gpu --no-sandbox --in-process-gpu"
+  flags="$common --disable-gpu"
 fi
 
 dir="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-workspace/env"

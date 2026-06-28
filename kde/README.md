@@ -33,12 +33,19 @@ installer picks the right one automatically.
   variant instead — `./enable-web.sh --gpu` — and log out/in; whichever renders
   your wallpapers wins (re-run to switch).
 
-  **Mouse interaction:** the web view is kept input-passive, so right-clicking
-  the desktop still opens Plasma's normal menu. Cursor movement and
-  left/middle-clicks are forwarded to the wallpaper, so interactive wallpapers
-  (parallax, clickable elements) keep working. The trade-off is that left-click
-  on the empty desktop no longer rubber-band-selects icons while a web wallpaper
-  is active.
+  Some web wallpapers fetch a runtime (Rive, Three.js, …) from a CDN or load
+  local files; `enable-web.sh` relaxes the browser's CORS/file-access checks so
+  those load instead of rendering black. They still need a working network
+  connection to reach the CDN.
+
+  **Mouse interaction:** by default the web view is input-passive, so
+  right-clicking the desktop still opens Plasma's normal menu, while cursor
+  movement and left/middle-clicks are forwarded to the wallpaper (best-effort —
+  enough for most parallax/hover effects). Some wallpapers ignore synthetic
+  input; for those, tick **"Forward mouse to web wallpapers"** in the wallpaper
+  config (right-click the desktop → *Configure Desktop and Wallpaper…*). That
+  gives the wallpaper full native mouse input, but while it's on the desktop's
+  right-click menu is unavailable (the wallpaper receives the right button).
 
 ## Install
 

@@ -19,6 +19,7 @@ Kirigami.FormLayout {
     property alias cfg_Volume: volumeSlider.value
     property alias cfg_FillMode: fillCombo.currentIndex
     property alias cfg_Loop: loopCheck.checked
+    property alias cfg_MouseInteraction: interactionCheck.checked
 
     // Defaults (used by Plasma's "reset to defaults").
     property string cfg_VideoUrlDefault: ""
@@ -26,6 +27,7 @@ Kirigami.FormLayout {
     property int cfg_VolumeDefault: 100
     property int cfg_FillModeDefault: 2
     property bool cfg_LoopDefault: true
+    property bool cfg_MouseInteractionDefault: false
 
     RowLayout {
         Kirigami.FormData.label: i18n("Video:")
@@ -75,6 +77,12 @@ Kirigami.FormLayout {
         id: loopCheck
         Kirigami.FormData.label: i18n("Playback:")
         text: i18n("Loop forever")
+    }
+
+    QtControls.CheckBox {
+        id: interactionCheck
+        Kirigami.FormData.label: i18n("Web interaction:")
+        text: i18n("Forward mouse to web wallpapers (uses right-click)")
     }
 
     QtDialogs.FileDialog {

@@ -30,5 +30,11 @@
         <entry name="Loop" type="Bool">
             <default>true</default>
         </entry>
+        <!-- Give web wallpapers native mouse input (cursor parallax, clickable
+             elements). When on, the wallpaper also receives the right button, so
+             right-clicking the desktop no longer opens the Plasma menu. -->
+        <entry name="MouseInteraction" type="Bool">
+            <default>false</default>
+        </entry>
     </group>
 </kcfg>
