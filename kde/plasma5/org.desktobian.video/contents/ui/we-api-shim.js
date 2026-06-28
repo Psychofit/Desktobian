@@ -40,13 +40,17 @@
   // --- Forwarded pointer interaction (Desktobian) ------------------------
   // The Plasma plugin keeps the web view input-passive (so the desktop's
   // right-click menu keeps working) and instead forwards cursor movement and
-  // middle-clicks here as synthetic DOM mouse events, so interactive wallpapers
-  // (cursor parallax, click handlers) still react to the pointer.
+  // left/middle-clicks here, so interactive wallpapers (cursor parallax, click
+  // handlers) still react to the pointer. We dispatch BOTH mouse and pointer
+  // events because different wallpapers listen to different ones.
+  //
+  // type is "move" | "down" | "up"; button is the DOM button id
+  // (0 = left, 1 = middle, 2 = right).
   var buttonsBit = { 0: 1, 1: 4, 2: 2 }; // DOM "buttons" bitmask per button id
   window.__desktobianDispatchMouse = function (type, x, y, button) {
     try {
       var target = document.elementFromPoint(x, y) || document.body || document;
-      var ev = new MouseEvent(type, {
+      var init = {
         bubbles: true,
         cancelable: true,
         view: window,
@@ -55,9 +59,26 @@
         screenX: x,
         screenY: y,
         button: button,
-        buttons: type === "mousedown" ? buttonsBit[button] || 0 : 0,
-      });
-      target.dispatchEvent(ev);
+        buttons: type === "down" ? buttonsBit[button] || 0 : 0,
+      };
+      var mouseType =
+        type === "down" ? "mousedown" : type === "up" ? "mouseup" : "mousemove";
+      target.dispatchEvent(new MouseEvent(mouseType, init));
+      if (type === "up") target.dispatchEvent(new MouseEvent("click", init));
+      if (typeof PointerEvent === "function") {
+        var pinit = {};
+        for (var k in init) pinit[k] = init[k];
+        pinit.pointerId = 1;
+        pinit.pointerType = "mouse";
+        pinit.isPrimary = true;
+        var pointerType =
+          type === "down"
+            ? "pointerdown"
+            : type === "up"
+            ? "pointerup"
+            : "pointermove";
+        target.dispatchEvent(new PointerEvent(pointerType, pinit));
+      }
     } catch (e) {}
   };
 

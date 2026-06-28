@@ -41,12 +41,12 @@ Item {
         Component.onCompleted: view.userScripts.insert(weShim)
     }
 
-    // Forward cursor movement + middle-clicks to the page. Left/right buttons
-    // are deliberately not accepted, so they fall through to the Plasma desktop
-    // (right-click => containment menu, left-click => icon selection).
+    // Forward cursor movement + left/middle-clicks to the page. The right button
+    // is deliberately not accepted, so it falls through to the Plasma desktop and
+    // opens the normal containment menu.
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.MiddleButton
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         hoverEnabled: true
         property double lastMove: 0
 
@@ -55,18 +55,19 @@ Item {
                 "window.__desktobianDispatchMouse && window.__desktobianDispatchMouse('"
                 + type + "'," + Math.round(x) + "," + Math.round(y) + "," + button + ")");
         }
+        // DOM button id: 0 = left, 1 = middle.
+        function domButton(b) {
+            return b === Qt.MiddleButton ? 1 : 0;
+        }
 
         onPositionChanged: (mouse) => {
             var now = Date.now();
             if (now - lastMove < 16) // throttle to ~60 Hz
                 return;
             lastMove = now;
-            send("mousemove", mouse.x, mouse.y, 0);
+            send("move", mouse.x, mouse.y, 0);
         }
-        onPressed: (mouse) => send("mousedown", mouse.x, mouse.y, 1)
-        onReleased: (mouse) => {
-            send("mouseup", mouse.x, mouse.y, 1);
-            send("click", mouse.x, mouse.y, 1);
-        }
+        onPressed: (mouse) => send("down", mouse.x, mouse.y, domButton(mouse.button))
+        onReleased: (mouse) => send("up", mouse.x, mouse.y, domButton(mouse.button))
     }
 }
