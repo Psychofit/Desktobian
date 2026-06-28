@@ -26,6 +26,10 @@ installer picks the right one automatically.
   - Plasma 6 / Qt 6: `qml6-module-qtwebengine`
   - Plasma 5 / Qt 5: `qml-module-qtwebengine`
 
+  If a web wallpaper shows up **black**, QtWebEngine couldn't initialise its GPU
+  context inside plasmashell. Run `./enable-web.sh` (installs a Plasma env hook
+  with `--disable-gpu --no-sandbox --in-process-gpu`) and log out/in.
+
 ## Install
 
 ```sh
