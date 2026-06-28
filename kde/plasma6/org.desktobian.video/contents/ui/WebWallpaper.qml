@@ -26,9 +26,14 @@ Item {
         anchors.fill: parent
         url: wallpaper.configuration.WebUrl
 
-        // Passive by input: never consume native mouse events, so the desktop
-        // right-click menu keeps working. Interaction is forwarded via JS below.
-        enabled: false
+        // Input model depends on the "Web interaction" config option:
+        //  - off (default): input-passive, so left/right clicks fall through to
+        //    the Plasma desktop (right-click opens the containment menu).
+        //    Movement and left/middle-clicks are forwarded via JS (MouseArea).
+        //  - on: take native mouse input, so wallpapers that need real clicks /
+        //    parallax work fully — but the desktop right-click menu is then
+        //    unavailable while this wallpaper is active.
+        enabled: wallpaper.configuration.MouseInteraction
 
         WebEngineScript {
             id: weShim
@@ -46,6 +51,9 @@ Item {
     // opens the normal containment menu.
     MouseArea {
         anchors.fill: parent
+        // Only forward while the view is passive; in native-input mode the view
+        // handles the mouse itself, so this must not intercept events.
+        enabled: !view.enabled
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         hoverEnabled: true
         property double lastMove: 0

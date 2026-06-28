@@ -13,6 +13,17 @@
   if (window.__desktobianWeShim) return;
   window.__desktobianWeShim = true;
 
+  // --- Suppress the browser's own right-click menu -----------------------
+  // Stops Chromium's "Back / Reload / Save Image…" menu from appearing over the
+  // desktop in native-input mode. Page-level contextmenu handlers still run.
+  window.addEventListener(
+    "contextmenu",
+    function (e) {
+      e.preventDefault();
+    },
+    true
+  );
+
   // --- Audio-reactive wallpapers -----------------------------------------
   var audioCallback = null;
   window.wallpaperRegisterAudioListener = function (cb) {
