@@ -40,8 +40,10 @@ Wayland.
       (experimental)
 - [ ] Web wallpapers for the standalone engine (wlroots/X11) via an embedded
       browser surface (WebKitGTK/CEF)
-- [ ] Wallpaper Engine JS API shims (`window.wallpaperPropertyListener`,
-      audio listener) for wallpapers that need them
+- [x] Basic Wallpaper Engine JS API shim (`wallpaperRegisterAudioListener`,
+      `wallpaperPropertyListener` defaults) injected into web wallpapers
+- [ ] Feed real desktop audio (PipeWire FFT) to audio-reactive web wallpapers
+- [ ] Pass each wallpaper's real default properties from project.json
 - [ ] Wallpaper Engine **web** project support (`index.html` + assets)
 - [ ] Audio-responsive + mouse-interaction plumbing for web wallpapers
 
