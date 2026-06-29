@@ -17,6 +17,11 @@ native renderer:
   Workshop items show up automatically.
 - Shows a grid of **thumbnails** (generated with `ffmpeg`, cached).
 - **Apply** a wallpaper, choosing mute and fit (crop/fit/stretch).
+- **Configure web wallpaper properties in-app** (KDE): selecting a web
+  wallpaper shows a settings panel built from its `project.json` — colours,
+  sliders, drop-downs, toggles and text fields. Changes apply live (no need to
+  open Plasma's separate *Configure Desktop and Wallpaper…* dialog) and are
+  remembered per wallpaper; **Reset to defaults** clears them.
 - Add an extra folder, or pick a single video, with native file dialogs.
 
 ## Requirements

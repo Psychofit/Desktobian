@@ -5,6 +5,10 @@ const state = {
   items: [],
   selected: null,
   appliedPath: null,
+  env: null,
+  // Web wallpaper property editor state for the current selection.
+  webProps: [],
+  webOverridesText: "{}",
 };
 
 const el = (id) => document.getElementById(id);
@@ -26,6 +30,7 @@ function saveFolders() {
 async function init() {
   try {
     const env = await invoke("get_environment");
+    state.env = env;
     el("env-line").textContent =
       `${env.desktop || "Unknown DE"} · ${env.session_type || "?"} — applies via ${env.apply_method}`;
     state.folders = loadFolders() || (await invoke("default_library_folders"));
@@ -108,17 +113,170 @@ function select(item) {
   el("selected-info").textContent = item.name;
   el("btn-apply").disabled = false;
   renderGrid();
+  loadWebPanel(item);
+}
+
+// --- Web wallpaper property editor ------------------------------------------
+
+const overridesKey = (path) => "webprops:" + path;
+
+// Load and render the property editor for a web wallpaper (KDE only). Hides the
+// panel for videos/images, off KDE, or when the wallpaper exposes no properties.
+async function loadWebPanel(item) {
+  state.webProps = [];
+  if (!(state.env && state.env.is_kde) || item.kind !== "web") {
+    hidePropsPanel();
+    return;
+  }
+  state.webOverridesText = localStorage.getItem(overridesKey(item.path)) || "{}";
+  let props = [];
+  try {
+    props = await invoke("web_properties", { path: item.path });
+  } catch (_) {
+    props = [];
+  }
+  // Guard against a slower request resolving after the user picked something else.
+  if (!state.selected || state.selected.path !== item.path) return;
+  state.webProps = props;
+  renderProps(item);
+}
+
+function hidePropsPanel() {
+  el("props-panel").classList.add("hidden");
+  el("props-list").innerHTML = "";
+}
+
+function renderProps(item) {
+  const list = el("props-list");
+  list.innerHTML = "";
+  if (!state.webProps.length) {
+    hidePropsPanel();
+    return;
+  }
+  el("props-title").textContent = item.name + " — settings";
+  for (const p of state.webProps) {
+    list.appendChild(propRow(item, p));
+  }
+  el("props-panel").classList.remove("hidden");
+}
+
+// Persist a changed property value and, if this wallpaper is live, re-apply.
+function setProp(item, prop, value) {
+  state.webOverridesText = Props.withOverride(
+    state.webOverridesText,
+    prop.name,
+    value,
+    prop.default,
+  );
+  localStorage.setItem(overridesKey(item.path), state.webOverridesText);
+  if (state.appliedPath === item.path) scheduleLiveApply(item);
+}
+
+let liveTimer = null;
+function scheduleLiveApply(item) {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => {
+    invoke("apply_wallpaper", { request: applyRequestFor(item) }).catch(() => {});
+  }, 150);
+}
+
+// Build one editor row (label + typed control) for a property.
+function propRow(item, prop) {
+  const row = document.createElement("div");
+  row.className = "prop-row";
+
+  const label = document.createElement("span");
+  label.className = "prop-label";
+  label.textContent = prop.label;
+  label.title = prop.label;
+  row.appendChild(label);
+
+  const ctl = document.createElement("div");
+  ctl.className = "prop-control";
+  const overrides = Props.parseOverrides(state.webOverridesText);
+  const current = Props.valueFor(overrides, prop.name, prop.default);
+
+  if (prop.type === "bool") {
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = current === true;
+    cb.addEventListener("change", () => setProp(item, prop, cb.checked));
+    ctl.appendChild(cb);
+  } else if (prop.type === "slider") {
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = prop.min;
+    range.max = prop.max;
+    range.step = prop.step > 0 ? prop.step : "any";
+    range.value = current;
+    const val = document.createElement("span");
+    val.className = "prop-val";
+    const fmt = (v) => (prop.step >= 1 ? String(Math.round(v)) : Number(v).toFixed(2));
+    val.textContent = fmt(current);
+    range.addEventListener("input", () => {
+      val.textContent = fmt(range.value);
+      setProp(item, prop, Number(range.value));
+    });
+    ctl.appendChild(range);
+    ctl.appendChild(val);
+  } else if (prop.type === "combo") {
+    const sel = document.createElement("select");
+    (prop.options || []).forEach((opt, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = opt.label;
+      if (opt.value === current) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => {
+      const opt = (prop.options || [])[parseInt(sel.value, 10)];
+      if (opt) setProp(item, prop, opt.value);
+    });
+    ctl.appendChild(sel);
+  } else if (prop.type === "color") {
+    const color = document.createElement("input");
+    color.type = "color";
+    color.value = Props.colorToHex(current);
+    color.addEventListener("change", () =>
+      setProp(item, prop, Props.hexToColorString(color.value)),
+    );
+    ctl.appendChild(color);
+  } else {
+    const text = document.createElement("input");
+    text.type = "text";
+    text.value = current == null ? "" : String(current);
+    text.addEventListener("change", () => setProp(item, prop, text.value));
+    ctl.appendChild(text);
+  }
+
+  row.appendChild(ctl);
+  return row;
+}
+
+function resetProps() {
+  const item = state.selected;
+  if (!item || item.kind !== "web") return;
+  state.webOverridesText = "{}";
+  localStorage.removeItem(overridesKey(item.path));
+  renderProps(item);
+  if (state.appliedPath === item.path) scheduleLiveApply(item);
+}
+
+// The apply request for an item, including web property overrides for web ones.
+function applyRequestFor(item) {
+  return {
+    path: item.path,
+    muted: el("muted").checked,
+    fill_mode: parseInt(el("fill").value, 10),
+    web_properties: item.kind === "web" ? state.webOverridesText : null,
+  };
 }
 
 async function applySelected() {
   if (!state.selected) return;
   el("btn-apply").disabled = true;
   setStatus("Applying…");
-  const request = {
-    path: state.selected.path,
-    muted: el("muted").checked,
-    fill_mode: parseInt(el("fill").value, 10),
-  };
+  const request = applyRequestFor(state.selected);
   try {
     const res = await invoke("apply_wallpaper", { request });
     setStatus(res.message, res.ok ? "ok" : "err");
@@ -142,6 +300,7 @@ async function addVideo() {
     path,
     kind: "video",
   };
+  hidePropsPanel(); // a picked video has no web properties
   await applySelected();
   await refresh();
 }
@@ -179,5 +338,6 @@ el("btn-refresh").addEventListener("click", refresh);
 el("btn-pick").addEventListener("click", addVideo);
 el("btn-folder").addEventListener("click", addFolder);
 el("btn-apply").addEventListener("click", applySelected);
+el("props-reset").addEventListener("click", resetProps);
 
 init();
