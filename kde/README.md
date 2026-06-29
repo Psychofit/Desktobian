@@ -43,6 +43,16 @@ installer picks the right one automatically.
   falls back to `file://`, so simple wallpapers still work. CDN-based wallpapers
   also need a working network connection.
 
+  **Wallpaper properties:** web wallpapers expose user-configurable settings
+  (colours, sliders, toggles, …) with defaults declared in their `project.json`.
+  Desktobian reads those `general.properties` defaults and hands them to the
+  wallpaper (via Wallpaper Engine's `applyUserProperties` API), so a wallpaper
+  renders with its intended look rather than falling back to whatever it hard-
+  codes. Reading the defaults needs the localhost server above (it's fetched
+  over http); under the `file://` fallback the wallpaper starts with no
+  properties, as before. Per-wallpaper customisation of these values from the
+  config UI is not wired up yet.
+
   **Mouse interaction:** by default the web view is input-passive, so
   right-clicking the desktop still opens Plasma's normal menu, while cursor
   movement and left/middle-clicks are forwarded to the wallpaper (best-effort —
