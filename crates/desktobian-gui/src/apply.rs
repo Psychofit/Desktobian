@@ -17,6 +17,11 @@ pub struct ApplyRequest {
     /// 0 = stretch, 1 = fit (letterbox), 2 = crop (fill).
     #[serde(default = "default_fill")]
     pub fill_mode: u8,
+    /// For web wallpapers: a JSON `{ name: value }` map of property overrides to
+    /// store in the plugin's `WebProperties` entry. Empty/absent clears it so the
+    /// wallpaper uses its project.json defaults.
+    #[serde(default)]
+    pub web_properties: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -67,9 +72,10 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
         )
     } else if is_web(&req.path) {
         // Web wallpaper: our plugin shows a WebEngineView when WebUrl is set.
-        // Clear VideoUrl so it doesn't fall back to video mode, and reset
-        // WebProperties so this wallpaper starts from its own project.json
-        // defaults rather than inheriting the previous web wallpaper's overrides.
+        // Clear VideoUrl so it doesn't fall back to video mode, and write the
+        // user's property overrides (empty resets to the project.json defaults,
+        // so a newly selected wallpaper doesn't inherit the previous one's).
+        let web_props = js_escape(req.web_properties.as_deref().unwrap_or(""));
         format!(
             "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
                var d = ds[i]; \
@@ -77,7 +83,7 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
                d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
                d.writeConfig('WebUrl', '{url}'); \
                d.writeConfig('VideoUrl', ''); \
-               d.writeConfig('WebProperties', ''); \
+               d.writeConfig('WebProperties', '{web_props}'); \
              }}"
         )
     } else {

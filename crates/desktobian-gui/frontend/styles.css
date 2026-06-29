@@ -225,6 +225,82 @@ select {
   padding: 5px 7px;
 }
 
+/* Web wallpaper property editor (shown when a web wallpaper is selected). */
+.props-panel {
+  border-top: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px 20px;
+  max-height: 38vh;
+  overflow-y: auto;
+}
+.props-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+#props-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn.small {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.props-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px 22px;
+}
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.prop-label {
+  flex: 0 0 42%;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prop-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.prop-control input[type="range"],
+.prop-control select,
+.prop-control input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+.prop-control input[type="text"] {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 7px;
+}
+.prop-control input[type="color"] {
+  width: 42px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.prop-val {
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 38px;
+  text-align: right;
+}
+
 .status {
   margin: 0 0 16px;
   padding: 10px 14px;

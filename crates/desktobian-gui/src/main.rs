@@ -32,6 +32,21 @@ async fn scan_library(folders: Vec<String>, thumbnails: bool) -> Vec<library::Wa
         .unwrap_or_default()
 }
 
+/// The editable properties of a web wallpaper, read from the `project.json`
+/// next to its entry HTML. Empty for non-web wallpapers or when there's no
+/// readable project.json — the UI then just shows no property editor.
+#[tauri::command]
+fn web_properties(path: String) -> Vec<desktobian_core::webprops::WebProperty> {
+    let entry = std::path::Path::new(&path);
+    let Some(dir) = entry.parent() else {
+        return Vec::new();
+    };
+    match std::fs::read_to_string(dir.join("project.json")) {
+        Ok(text) => desktobian_core::webprops::parse_properties(&text),
+        Err(_) => Vec::new(),
+    }
+}
+
 /// Applying may shell out to qdbus/the engine socket; keep it off the main thread.
 #[tauri::command]
 async fn apply_wallpaper(request: apply::ApplyRequest) -> apply::ApplyResult {
@@ -93,6 +108,7 @@ fn main() {
             get_environment,
             default_library_folders,
             scan_library,
+            web_properties,
             apply_wallpaper,
             pick_video,
             pick_folder,
