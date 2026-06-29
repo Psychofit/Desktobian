@@ -28,6 +28,15 @@ Item {
         readonly property url fileUrl: wallpaper.configuration.WebUrl
         property bool retriedHttp: false
 
+        // User property customisations (a JSON `{ name: value }` map set in the
+        // config UI). Injected into the page before its scripts run (see
+        // overridesScript) and re-pushed live when the user edits a value.
+        readonly property string webProps: wallpaper.configuration.WebProperties || "{}"
+        onWebPropsChanged: view.runJavaScript(
+            "try{window.__desktobianUserPropertyOverrides=JSON.parse(" +
+            JSON.stringify(webProps) +
+            ")}catch(e){};window.__desktobianApplyProperties&&window.__desktobianApplyProperties();")
+
         // Serve local wallpapers through the Desktobian localhost server so the
         // page gets an http:// origin — QtWebEngine can't fetch() file:// URLs,
         // which breaks wallpapers that load local assets (Rive .riv, JSON, …).
@@ -77,7 +86,24 @@ Item {
             sourceUrl: Qt.resolvedUrl("we-api-shim.js")
         }
 
-        Component.onCompleted: view.userScripts.insert(weShim)
+        // Inject the user's property overrides before the page's own scripts, so
+        // the shim applies the customised values on first paint (no flash of the
+        // defaults). JSON.parse at runtime keeps a malformed config from
+        // breaking the script.
+        WebEngineScript {
+            id: overridesScript
+            injectionPoint: WebEngineScript.DocumentCreation
+            worldId: WebEngineScript.MainWorld
+            runOnSubframes: true
+            sourceCode: "try{window.__desktobianUserPropertyOverrides=JSON.parse(" +
+                        JSON.stringify(view.webProps) +
+                        ")}catch(e){window.__desktobianUserPropertyOverrides={}}"
+        }
+
+        Component.onCompleted: {
+            view.userScripts.insert(weShim);
+            view.userScripts.insert(overridesScript);
+        }
     }
 
     // Mouse handling adapts to the "Web interaction" option:

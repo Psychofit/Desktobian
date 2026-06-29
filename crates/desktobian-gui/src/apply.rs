@@ -67,7 +67,9 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
         )
     } else if is_web(&req.path) {
         // Web wallpaper: our plugin shows a WebEngineView when WebUrl is set.
-        // Clear VideoUrl so it doesn't fall back to video mode.
+        // Clear VideoUrl so it doesn't fall back to video mode, and reset
+        // WebProperties so this wallpaper starts from its own project.json
+        // defaults rather than inheriting the previous web wallpaper's overrides.
         format!(
             "var ds = desktops(); for (var i = 0; i < ds.length; i++) {{ \
                var d = ds[i]; \
@@ -75,6 +77,7 @@ fn apply_kde(req: &ApplyRequest) -> ApplyResult {
                d.currentConfigGroup = ['Wallpaper', 'org.desktobian.video', 'General']; \
                d.writeConfig('WebUrl', '{url}'); \
                d.writeConfig('VideoUrl', ''); \
+               d.writeConfig('WebProperties', ''); \
              }}"
         )
     } else {

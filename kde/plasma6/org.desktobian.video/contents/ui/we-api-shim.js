@@ -119,12 +119,30 @@
     return out;
   }
 
+  // Layer the user's customised values (set in the Plasma config UI and injected
+  // as `window.__desktobianUserPropertyOverrides`, a plain `{ name: value }`
+  // map) on top of the project defaults. Overrides win and may add properties.
+  function withOverrides(defaults) {
+    var out = {};
+    for (var k in defaults) {
+      if (Object.prototype.hasOwnProperty.call(defaults, k)) out[k] = defaults[k];
+    }
+    var overrides = window.__desktobianUserPropertyOverrides;
+    if (overrides && typeof overrides === "object") {
+      for (var name in overrides) {
+        if (!Object.prototype.hasOwnProperty.call(overrides, name)) continue;
+        out[name] = { value: overrides[name] };
+      }
+    }
+    return out;
+  }
+
   // Fetch project.json relative to the wallpaper page. QtWebEngine can't fetch()
   // over file://, so this only succeeds when the page is served through the
   // Desktobian localhost http server (the default for the Plasma plugin).
   // Resolves to {} on any failure (no file, file:// origin, malformed JSON) so
-  // the wallpaper still starts — just with empty properties, as before.
-  var userPropertiesPromise = fetch("project.json", { cache: "no-store" })
+  // the wallpaper still starts — just with defaults/overrides only, as before.
+  var defaultsPromise = fetch("project.json", { cache: "no-store" })
     .then(function (r) {
       return r.ok ? r.json() : null;
     })
@@ -135,12 +153,26 @@
       return {};
     });
 
+  // Re-merge defaults + current overrides and push them to the wallpaper.
+  // Exposed so the Plasma plugin can re-apply live when the user edits a
+  // property in the config UI, without reloading the page.
+  window.__desktobianApplyProperties = function () {
+    defaultsPromise.then(function (defaults) {
+      var l = window.wallpaperPropertyListener;
+      if (!l || !l.applyUserProperties) return;
+      try {
+        l.applyUserProperties(withOverrides(defaults));
+      } catch (e) {}
+    });
+  };
+
   // --- Kick off the wallpaper with its real properties -------------------
   // Wallpapers register wallpaperPropertyListener from their own scripts, which
   // may run after our 'load' handler fires. Retry briefly until the listener
   // exposes a real handler, then apply the properties once.
   function kickOff() {
-    userPropertiesPromise.then(function (userProps) {
+    defaultsPromise.then(function (defaults) {
+      var userProps = withOverrides(defaults);
       var attempts = 0;
       (function attempt() {
         var l = window.wallpaperPropertyListener;
