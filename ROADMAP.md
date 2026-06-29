@@ -45,7 +45,11 @@ Wayland.
 - [x] Serve web wallpapers over a localhost http server so the page can
       `fetch()` local assets (Rive/Three.js runtimes, JSON) that `file://` blocks
 - [ ] Feed real desktop audio (PipeWire FFT) to audio-reactive web wallpapers
-- [ ] Pass each wallpaper's real default properties from project.json
+- [x] Pass each wallpaper's real default properties from project.json
+      (the KDE web shim reads `general.properties` and delivers the defaults
+      via `applyUserProperties`)
+- [x] Let users customise web wallpaper properties (colours, sliders, combos,
+      toggles) from the Plasma config UI; overrides apply live and persist
 - [ ] Wallpaper Engine **web** project support (`index.html` + assets)
 - [x] Mouse-interaction plumbing for web wallpapers — passive mode forwards
       cursor + left/middle-clicks as DOM events (right-click stays the Plasma

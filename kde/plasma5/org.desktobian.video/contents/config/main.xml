@@ -14,6 +14,13 @@
         <entry name="WebUrl" type="Url">
             <default></default>
         </entry>
+        <!-- User customisations for the web wallpaper's properties, as a JSON
+             object of { propertyName: value } overrides. Only values changed
+             away from the project.json defaults are stored; empty means "use
+             every default". Edited via the config UI's property editor. -->
+        <entry name="WebProperties" type="String">
+            <default></default>
+        </entry>
         <!-- Mute audio (default: yes — a wallpaper shouldn't blast sound). -->
         <entry name="Muted" type="Bool">
             <default>true</default>

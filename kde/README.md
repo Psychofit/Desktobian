@@ -43,6 +43,23 @@ installer picks the right one automatically.
   falls back to `file://`, so simple wallpapers still work. CDN-based wallpapers
   also need a working network connection.
 
+  **Wallpaper properties:** web wallpapers expose user-configurable settings
+  (colours, sliders, combos, toggles, …) with defaults declared in their
+  `project.json`. Desktobian reads those `general.properties` defaults and hands
+  them to the wallpaper (via Wallpaper Engine's `applyUserProperties` API), so a
+  wallpaper renders with its intended look rather than falling back to whatever
+  it hard-codes. Reading the defaults needs the localhost server above (it's
+  fetched over http); under the `file://` fallback the wallpaper starts with no
+  properties, as before.
+
+  You can **customise** these properties for the active web wallpaper:
+  right-click the desktop → *Configure Desktop and Wallpaper…* and a
+  **"Wallpaper properties"** section lists each setting with the right control
+  (colour picker, slider, drop-down, checkbox, text field). Changes apply live
+  and are saved with the wallpaper. Only values you change from the default are
+  stored, so a wallpaper author's later default tweaks still flow through for
+  settings you haven't touched.
+
   **Mouse interaction:** by default the web view is input-passive, so
   right-clicking the desktop still opens Plasma's normal menu, while cursor
   movement and left/middle-clicks are forwarded to the wallpaper (best-effort —
@@ -96,15 +113,17 @@ rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/plasma/wallpapers/org.desktobian.vi
 kde/
   install.sh                 detects Plasma version, installs the right variant
   plasma6/org.desktobian.video/
-    metadata.json            Plasma 6 plugin manifest
-    contents/config/main.xml config schema (KConfigXT)
-    contents/ui/main.qml     video wallpaper (Qt 6 QtMultimedia)
-    contents/ui/config.qml   settings UI (Qt 6)
+    metadata.json              Plasma 6 plugin manifest
+    contents/config/main.xml   config schema (KConfigXT)
+    contents/ui/main.qml       video wallpaper (Qt 6 QtMultimedia)
+    contents/ui/WebWallpaper.qml  web wallpaper surface (Qt 6 QtWebEngine)
+    contents/ui/we-api-shim.js    Wallpaper Engine JS API shim + property apply
+    contents/ui/we-properties.js  project.json property parsing/overrides (shared)
+    contents/ui/config.qml     settings UI + web property editor (Qt 6)
   plasma5/org.desktobian.video/
-    metadata.desktop         Plasma 5 plugin manifest
-    contents/config/main.xml config schema (KConfigXT, identical)
-    contents/ui/main.qml     video wallpaper (Qt 5 QtMultimedia)
-    contents/ui/config.qml   settings UI (Qt 5)
+    metadata.desktop           Plasma 5 plugin manifest
+    contents/config/main.xml   config schema (KConfigXT, identical)
+    contents/ui/...            same set, Qt 5 variants
 ```
 
 The two variants differ only because the QtMultimedia QML API and the plugin
